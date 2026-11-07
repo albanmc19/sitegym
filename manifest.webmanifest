@@ -1,0 +1,16 @@
+{
+  "name": "Séances",
+  "short_name": "Séances",
+  "description": "Programme de salle de sport, suivi des exercices et messagerie.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#10141b",
+  "theme_color": "#1f4bff",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
