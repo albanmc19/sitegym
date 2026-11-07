@@ -6,7 +6,8 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.spotify.com https://accounts.spotify.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com; frame-src https://open.spotify.com https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <script>if(self!==top){document.documentElement.style.display='none';try{top.location=self.location}catch(e){}}</script>
-<meta name="theme-color" content="#0c1222">
+<meta name="theme-color" content="#f2f4f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c1222" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -20,7 +21,8 @@
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 'Instrument Sans',system-ui,sans-serif;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-header{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;padding:12px 24px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;padding:12px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header:before{content:"";position:absolute;inset:0;z-index:-1;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 header b{display:flex;align-items:center;gap:10px;font:800 22px var(--hf);letter-spacing:-.01em;margin-right:auto}
 header b:before{content:"";width:12px;height:22px;border-radius:4px;background:var(--acc);transform:skewX(-12deg)}
 nav{display:flex;gap:4px}
@@ -139,7 +141,7 @@ body.out header{display:none}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(max-width:600px){
  body{font-size:17px}
- header{padding:calc(10px + env(safe-area-inset-top)) 16px 10px;gap:8px}
+ header{padding:calc(10px + env(safe-area-inset-top)) 16px 10px;gap:8px;flex-wrap:nowrap;min-height:calc(56px + env(safe-area-inset-top))}
  header b{font-size:20px}
  #who{font-size:14px;margin-left:auto}
  header #out{min-height:36px;padding:6px 12px;font-size:14px;border-radius:10px}
