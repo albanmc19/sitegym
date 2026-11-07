@@ -158,6 +158,16 @@ body.out header{display:none}
  .comp,.stick{bottom:calc(84px + env(safe-area-inset-bottom))}
  .stick{padding:14px 0}
 }
+.rt{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:45;display:flex;align-items:center;gap:8px;background:var(--ink);color:var(--bg);border-radius:20px;padding:10px 12px 10px 18px;box-shadow:var(--sh);width:min(440px,calc(100% - 24px))}
+.rt div{flex:1;display:flex;flex-direction:column;line-height:1.2}.rt b{font:800 28px var(--hf)}.rt span{font-size:13px;opacity:.75}
+.rt button{min-height:40px;padding:6px 12px;font-size:14px}.rt button.alt{color:inherit;border-color:rgba(128,128,128,.5)}
+.rt.go{background:var(--acc);color:var(--acc-ink)}
+@media(max-width:600px){.rt{bottom:calc(86px + env(safe-area-inset-bottom))}}
+details.act summary{list-style:none;cursor:pointer;display:flex;gap:14px;align-items:center}
+details.act summary::-webkit-details-marker{display:none}
+details.act[open] summary{margin-bottom:8px}
+.act .it{padding:12px 0;border-top:1px solid var(--line);font-size:15px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.chips button{min-height:36px;padding:6px 12px;border-radius:99px;font-size:14px}
 </style>
 </head>
 <body>
@@ -212,7 +222,7 @@ auth.onAuthStateChanged(async u => {
   if (user) db.collection('users').doc(user.uid).set({name: nm(user), email: user.email, seen: Date.now()}, {merge: true}).catch(() => {});
   setWho(); route();
 });
-$('#out').onclick = () => auth.signOut();
+$('#out').onclick = () => { stopRest(); auth.signOut(); };
 addEventListener('hashchange', route);
 
 const ICO = {
@@ -230,7 +240,7 @@ function nav() {
   document.title = (unread ? `(${unread}) ` : '') + 'Séances';
   const h = location.hash || '#/';
   const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/']], ['#/progres', 'chart', 'Progrès', ['#/progres']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
-  if (isAdmin) l.push(['#/admin', 'pen', 'Gérer', ['#/admin', '#/inscrits']]);
+  if (isAdmin) l.push(['#/activite', 'users', 'Activité', ['#/activite']], ['#/admin', 'pen', 'Gérer', ['#/admin', '#/inscrits']]);
   $('#nav').innerHTML = user ? l.map(([a, i, t, m]) => `<a href="${a}" class="${(a === '#/' ? h === '#/' : m.some(p => h.startsWith(p))) ? 'on' : ''}">${icon(i)}<span>${t}</span>${a === '#/messages' && unread ? `<span class="bd">${unread}</span>` : ''}</a>`).join('') : '';
 }
 function watchMsgs() {
@@ -238,8 +248,9 @@ function watchMsgs() {
   if (!user) return;
   const q = isAdmin ? db.collection('messages') : db.collection('messages').where('uid', '==', user.uid);
   unsub = q.onSnapshot(sn => {
-    unread = sn.docs.filter(d => { const m = d.data(); return isAdmin ? m.from === 'user' && !m.readByAdmin : m.from === 'admin' && !m.readByUser; }).length;
+    const prevU = unread; unread = sn.docs.filter(d => { const m = d.data(); return isAdmin ? m.from === 'user' && !m.readByAdmin : m.from === 'admin' && !m.readByUser; }).length;
     nav();
+    if (unread > prevU && document.hidden && 'Notification' in window && Notification.permission === 'granted') { try { new Notification('Séances', {body: isAdmin ? 'Nouveau message d’un inscrit' : 'Nouveau message d’Alban'}); } catch (e) {} }
   }, () => {});
 }
 
@@ -308,8 +319,49 @@ function verifyScreen() {
   $('#vout').onclick = () => auth.signOut();
 }
 
+// ----- Chrono de repos, écran allumé -----
+let rt = null, wl = null;
+const parseRest = t => { t = String(t || '').toLowerCase(); let m = /(\d+)\s*(?:min|m|')\s*(\d+)?/.exec(t); if (m) return +m[1] * 60 + (+m[2] || 0); m = /(\d+):(\d{2})/.exec(t); if (m) return +m[1] * 60 + +m[2]; m = /(\d+)/.exec(t); return m ? +m[1] : 0; };
+function beep() { try { const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = .15; o.start(); o.stop(c.currentTime + .35); } catch (e) {} }
+function stopRest() { if (rt) { clearInterval(rt.i); rt = null; } const el = $('#rt'); if (el) el.remove(); }
+function startRest(sec, label) {
+  stopRest();
+  const el = document.createElement('div'); el.id = 'rt'; el.className = 'rt'; el.setAttribute('role', 'timer');
+  el.innerHTML = '<div><b id="rtt">0:00</b><span id="rtl"></span></div><button class="alt" id="rtm">−15 s</button><button class="alt" id="rtp">+15 s</button><button id="rtx" aria-label="Arrêter le repos">✕</button>';
+  document.body.appendChild(el);
+  $('#rtl').textContent = 'Repos · ' + label;
+  rt = {end: Date.now() + sec * 1000, el};
+  const tick = () => {
+    if (!rt || rt.el !== el) return;
+    const left = Math.ceil((rt.end - Date.now()) / 1000);
+    if (left <= 0) {
+      $('#rtt').textContent = 'Go !'; $('#rtl').textContent = 'Repos terminé'; el.classList.add('go');
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]); beep(); clearInterval(rt.i);
+      setTimeout(() => { if (rt && rt.el === el) stopRest(); }, 6000); return;
+    }
+    $('#rtt').textContent = Math.floor(left / 60) + ':' + pad(left % 60);
+  };
+  rt.i = setInterval(tick, 250); tick();
+  $('#rtm').onclick = () => { if (rt) { rt.end -= 15000; tick(); } };
+  $('#rtp').onclick = () => { if (rt) { rt.end += 15000; tick(); } };
+  $('#rtx').onclick = stopRest;
+}
+async function keepAwake() { try { if (navigator.wakeLock && !wl) { wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); } } catch (e) {} }
+
+async function listSessions() {
+  const list = await all();
+  app.innerHTML = `<h1>Séances</h1>${seg('list')}<input id="sq" type="search" placeholder="Rechercher une séance ou un exercice" aria-label="Rechercher"><div id="sl" style="margin-top:8px"></div>`;
+  const draw = () => {
+    const q = $('#sq').value.trim().toLowerCase();
+    const f = list.filter(s => !q || (s.title + ' ' + s.exercises.map(e => e.name).join(' ')).toLowerCase().includes(q));
+    $('#sl').innerHTML = f.length ? f.map(s => `<a class="card item" href="#/seance/${s.id}"><span><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span></span></a>`).join('') : '<p class="mute">Aucune séance.</p>';
+  };
+  $('#sq').oninput = draw; draw();
+}
+
 async function route() {
   if (pageUnsub) { pageUnsub(); pageUnsub = null; }
+  if (wl) { wl.release().catch(() => {}); wl = null; }
   nav(); app.classList.remove('wide');
   document.body.classList.toggle('out', !user);
   if (!user && pending) return verifyScreen();
@@ -355,6 +407,7 @@ async function route() {
   try {
     if (page === 'seance') return await viewSession(id);
     if (page === 'calendrier') return await calendarPage();
+    if (page === 'activite' && isAdmin) return await activityPage(id);
     if (page === 'inscrits' && isAdmin) return await usersPage();
     if (page === 'progres') return await progressPage();
     if (page === 'messages') return await messagesPage(id);
@@ -376,12 +429,6 @@ async function home() {
   return viewSession(s.id, s.date === t ? "Aujourd'hui" : s.date > t ? 'Prochaine séance' : 'Dernière séance');
 }
 
-async function listSessions() {
-  const list = await all();
-  app.innerHTML = `<h1>Séances</h1>${seg('list')}` + (list.length ? list.map(s =>
-    `<a class="card item" href="#/seance/${s.id}"><span><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span></span></a>`).join('')
-    : `<p class="mute">Aucune séance.</p>`);
-}
 
 async function adminList() {
   const list = await all();
@@ -410,6 +457,8 @@ async function viewSession(id, label) {
       if (!l.length) return;
       const last = l[l.length - 1], nums = l.filter(x => x.num != null), best = nums.length ? nums.reduce((a, b) => b.num >= a.num ? b : a) : null;
       el.textContent = `Dernière fois : ${last.w} (${short(last.date)})` + (best && best.num !== last.num ? ` · Record : ${best.w}` : '');
+      el.title = 'Toucher pour reprendre cette charge'; el.style.cursor = 'pointer';
+      el.onclick = () => { const inp = app.querySelector(`[data-w="${i}"]`); if (inp && !inp.value) { inp.value = last.w; mine.w[i] = last.w; } };
     });
   }).catch(() => {});
   const render = () => {
@@ -423,7 +472,7 @@ async function viewSession(id, label) {
     <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
     <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
     ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/admin/${id}">Modifier la séance</a><button class="alt" id="cpy">Copier…</button></p>` : ''}`;
-    app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; save(false); });
+    app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; if (c.checked) { const ex = s.exercises[c.dataset.i], r = parseRest(ex.rest); if (r) startRest(r, ex.name); } save(false); });
     app.querySelectorAll('[data-w]').forEach(i => i.oninput = () => { mine.w[i.dataset.w] = i.value; });
     $('#save').onclick = () => save(true);
     fill();
@@ -440,7 +489,7 @@ async function viewSession(id, label) {
     await logRef.set({uid: user.uid, name: nm(user), sessionId: id, done: mine.done, w: mine.w, note: mine.note, updatedAt: Date.now()});
     if (manual) $('#ok').textContent = 'Enregistré'; else render();
   }
-  render();
+  render(); keepAwake();
 }
 
 const when = t => new Date(t).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
@@ -715,25 +764,77 @@ async function usersPage() {
   $('#q').oninput = draw; draw();
 }
 
+function notifAsk(before) {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  const b = document.createElement('button'); b.className = 'link'; b.textContent = '🔔 Activer les notifications';
+  b.onclick = () => Notification.requestPermission().then(() => b.remove()); before.before(b);
+}
+
+function broadcastModal(users) {
+  const el = document.createElement('div'); el.className = 'modal';
+  el.innerHTML = `<div class="sheet" role="dialog" aria-label="Message à tous"><h2 style="margin-top:0">Message à tous (${users.length})</h2><p class="mute">Chaque inscrit le reçoit dans sa conversation.</p><textarea id="bt" rows="4" maxlength="1000" placeholder="Ton message…"></textarea><p class="row" style="margin-top:14px"><button class="alt" id="bx">Annuler</button><button id="bs">Envoyer à tous</button></p></div>`;
+  document.body.appendChild(el);
+  const q = s => el.querySelector(s), close = () => el.remove();
+  q('#bx').onclick = close; el.onclick = e => { if (e.target === el) close(); };
+  q('#bs').onclick = async () => {
+    const text = q('#bt').value.trim(); if (!text || !users.length) return;
+    if (!confirm('Envoyer ce message à ' + users.length + ' personne(s) ?')) return;
+    q('#bs').disabled = true;
+    try {
+      for (let i = 0; i < users.length; i += 450) {
+        const b = db.batch();
+        users.slice(i, i + 450).forEach(u => b.set(db.collection('messages').doc(), {uid: u.uid, name: (u.name || 'Utilisateur').slice(0, 100), from: 'admin', text, createdAt: Date.now(), readByAdmin: true, readByUser: false}));
+        await b.commit();
+      }
+      close();
+    } catch (e) { q('#bs').disabled = false; alert(e.message); }
+  };
+}
+
+async function activityPage(focus) {
+  app.classList.add('wide');
+  const [ss, lg, us] = await Promise.all([all(), db.collection('logs').get(), db.collection('users').get()]);
+  const S = {}; ss.forEach(s => { S[s.id] = s; });
+  const recs = lg.docs.map(d => d.data()).map(l => { const s = S[l.sessionId]; if (!s) return null; const n = s.exercises.filter((_, i) => l.done && l.done[i]).length; return n ? {l, s, n} : null; }).filter(Boolean);
+  const people = us.docs.map(d => ({uid: d.id, ...d.data()})).filter(u => (u.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase());
+  let days = 7;
+  const draw = () => {
+    const t = today(), cut = days ? addDays(t, 1 - days) : '0000-00-00', planned = ss.filter(s => s.date >= cut && s.date <= t).length;
+    const rows = people.map(p => { const items = recs.filter(r => r.l.uid === p.uid && r.s.date >= cut).sort((a, b) => a.s.date < b.s.date ? 1 : -1); return {p, items, ex: items.reduce((a, r) => a + r.n, 0), last: Math.max(0, ...items.map(r => r.l.updatedAt || 0))}; }).sort((a, b) => b.items.length - a.items.length || b.last - a.last);
+    const act = rows.filter(r => r.items.length).length, totS = rows.reduce((a, r) => a + r.items.length, 0), totE = rows.reduce((a, r) => a + r.ex, 0);
+    app.innerHTML = `<h1>Activité</h1><div class="seg" id="ap">${[[7, '7 jours'], [30, '30 jours'], [0, 'Tout']].map(([d, x]) => `<a href="#" data-p="${d}" class="${days === d ? 'on' : ''}">${x}</a>`).join('')}</div>
+      <div class="stats"><div class="stat"><b>${act}/${rows.length}</b><span>Personnes actives</span></div><div class="stat"><b>${totS}</b><span>Séances suivies</span></div><div class="stat"><b>${totE}</b><span>Exercices cochés</span></div></div>
+      <p class="mute">${planned} séance${planned > 1 ? 's' : ''} prévue${planned > 1 ? 's' : ''} sur la période. Touche une personne pour voir le détail.</p>
+      ${rows.length ? rows.map(r => { const pct = planned ? Math.min(100, Math.round(r.items.length / planned * 100)) : 0; return `<details class="card act" ${r.p.uid === focus ? 'open' : ''}><summary><div class="av">${esc((r.p.name || '?').trim()[0] || '?').toUpperCase()}</div><div style="flex:1;min-width:0"><b>${esc(r.p.name)}</b>${r.p.blocked ? ' <span class="err">Bloqué</span>' : ''}<br><span class="mute">${r.items.length}/${planned} séances · ${r.ex} exercices · ${r.last ? esc(dayLabel(r.last)) : 'aucune activité'}</span><div class="bar"><i style="width:${pct}%"></i></div></div></summary>
+        ${r.items.length ? r.items.map(x => `<div class="it"><a href="#/seance/${esc(x.s.id)}" style="color:inherit"><b>${esc(x.s.title)}</b></a> <span class="mute">${esc(fmt(x.s.date))} · ${x.n}/${x.s.exercises.length}</span><br>${x.s.exercises.map((e, i) => x.l.done && x.l.done[i] ? '✓ ' + esc(e.name) + (x.l.w && x.l.w[i] ? ' — ' + esc(x.l.w[i]) : '') : '').filter(Boolean).join('<br>')}${x.l.note ? `<br><i>« ${esc(x.l.note)} »</i>` : ''}</div>`).join('') : '<p class="mute" style="margin:12px 0 0">Rien de coché sur cette période.</p>'}
+        <p style="margin:12px 0 0"><a class="btn alt" href="#/messages/${esc(r.p.uid)}">Message</a></p></details>`; }).join('') : '<p class="mute">Aucun inscrit.</p>'}`;
+    app.querySelectorAll('[data-p]').forEach(a => a.onclick = e => { e.preventDefault(); days = +a.dataset.p; draw(); });
+  };
+  draw();
+}
+
 async function messagesPage(uid) {
   if (!isAdmin) return thread(user.uid, nm(user));
   if (uid) return thread(uid);
-  app.innerHTML = `<h1>Messages</h1><p><button id="newm" class="alt">+ Nouveau message</button></p><div id="usrs" hidden></div><div id="inbox"></div>`;
+  app.innerHTML = `<h1>Messages</h1><p class="row"><button id="newm" class="alt">+ Nouveau message</button><button id="bcast" class="alt">Message à tous</button></p><div id="usrs" hidden></div><input id="mq" type="search" placeholder="Rechercher une conversation" aria-label="Rechercher"><div id="inbox" style="margin-top:8px"></div>`;
+  notifAsk($('#mq'));
   const us = (await db.collection('users').get().catch(() => ({docs: []}))).docs.map(d => ({uid: d.id, ...d.data()})).filter(u => u.uid !== user.uid);
   $('#usrs').innerHTML = us.length ? us.map(u => `<a class="card item" href="#/messages/${esc(u.uid)}"><b>${esc(u.name)}</b><span class="mute">${esc(u.email)}</span></a>`).join('') : '<p class="mute">Personne ne s’est encore connecté.</p>';
   $('#newm').onclick = () => { $('#usrs').hidden = !$('#usrs').hidden; };
+  $('#bcast').onclick = () => broadcastModal(us.filter(u => !u.blocked));
   let ms = [];
   const draw = () => {
     if (!$('#inbox')) return;
-    const g = {};
+    const q = $('#mq').value.trim().toLowerCase(), g = {};
     ms.forEach(m => {
       const c = g[m.uid] || (g[m.uid] = {uid: m.uid, name: m.name, last: m, unread: 0});
       if (m.createdAt >= c.last.createdAt) c.last = m;
       if (m.from === 'user') { c.name = m.name; if (!m.readByAdmin) c.unread++; }
     });
-    const list = Object.values(g).sort((a, b) => b.last.createdAt - a.last.createdAt);
-    $('#inbox').innerHTML = list.length ? list.map(c => `<a class="card item" href="#/messages/${esc(c.uid)}"><span><b>${esc(c.name)}</b>${c.unread ? `<span class="bd" style="position:static">${c.unread}</span>` : ''}<br><span class="mute">${esc((c.last.from === 'admin' ? 'Toi : ' : '') + c.last.text.slice(0, 80))}</span></span><span class="mute">${whenShort(c.last.createdAt)}</span></a>`).join('') : '<p class="mute">Aucun message pour l’instant.</p>';
+    const list = Object.values(g).filter(c => !q || (c.name + ' ' + c.last.text).toLowerCase().includes(q)).sort((a, b) => (b.unread > 0) - (a.unread > 0) || b.last.createdAt - a.last.createdAt);
+    $('#inbox').innerHTML = list.length ? list.map(c => `<a class="card item" ${c.unread ? 'style="border-color:var(--acc)"' : ''} href="#/messages/${esc(c.uid)}"><span><b>${esc(c.name)}</b>${c.unread ? `<span class="bd" style="position:static">${c.unread}</span>` : ''}<br><span class="mute">${esc((c.last.from === 'admin' ? 'Toi : ' : '') + c.last.text.slice(0, 80))}</span></span><span class="mute">${whenShort(c.last.createdAt)}</span></a>`).join('') : '<p class="mute">Aucune conversation.</p>';
   };
+  $('#mq').oninput = draw;
   pageUnsub = db.collection('messages').onSnapshot(sn => { ms = sn.docs.map(d => d.data()); draw(); }, e => { if ($('#inbox')) $('#inbox').textContent = 'Erreur : ' + e.message; });
 }
 
@@ -741,10 +842,11 @@ async function thread(uid, nameHint) {
   const mine = isAdmin ? 'admin' : 'user', other = isAdmin ? 'user' : 'admin', flag = isAdmin ? 'readByAdmin' : 'readByUser';
   let name = nameHint;
   if (isAdmin && !name) { const d = await db.collection('users').doc(uid).get().catch(() => null); name = d && d.exists ? d.data().name : null; }
-  app.innerHTML = `${isAdmin ? '<p><a class="link" href="#/messages">← Tous les messages</a></p>' : ''}<h1 id="tt">${isAdmin ? esc(name || 'Conversation') : 'Messages'}</h1>
+  app.innerHTML = `${isAdmin ? `<p style="display:flex;gap:4px;flex-wrap:wrap"><a class="link" href="#/messages">← Tous les messages</a><a class="link" href="#/activite/${esc(uid)}">Voir l’activité</a></p>` : ''}<h1 id="tt">${isAdmin ? esc(name || 'Conversation') : 'Messages'}</h1>
   ${isAdmin ? '<p><button class="link" id="delc" hidden>Supprimer la conversation</button></p>' : '<p class="mute">Écris à Alban, sa réponse apparaîtra ici en direct.</p>'}
   <div id="thr"></div>
-  <div class="comp"><textarea id="msg" rows="1" maxlength="1000" placeholder="Écrire un message…" aria-label="Message"></textarea><button id="send">Envoyer</button></div>`;
+  <div class="chips" id="qk"></div>
+  <div class="comp"><select id="att" aria-label="Joindre une séance" style="flex:none;width:68px;padding:12px 8px"><option value="">📎</option></select><textarea id="msg" rows="1" maxlength="1000" placeholder="Écrire un message…" aria-label="Message"></textarea><button id="send">Envoyer</button></div>`;
   let ms = [], first = true;
   const draw = () => {
     const box = $('#thr'); if (!box) return;
@@ -772,6 +874,13 @@ async function thread(uid, nameHint) {
     catch (e) { ta.value = text; alert(e.message); }
   };
   $('#send').onclick = send;
+  notifAsk($('#thr'));
+  if (!isAdmin) {
+    $('#qk').innerHTML = ['Séance terminée 💪', 'J’ai une question sur un exercice', 'Je ne peux pas venir aujourd’hui'].map(t => `<button class="alt" data-q="${esc(t)}">${esc(t)}</button>`).join('');
+    $('#qk').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const ta = $('#msg'); ta.value = b.dataset.q; ta.focus(); });
+  }
+  all().then(l => { $('#att').insertAdjacentHTML('beforeend', l.slice(0, 40).map(x => `<option value="${esc(x.id)}">${esc(x.title)} — ${esc(short(x.date))}</option>`).join('')); }).catch(() => {});
+  $('#att').onchange = e => { if (!e.target.value) return; const ta = $('#msg'); ta.value = (ta.value ? ta.value + '\n' : '') + location.origin + location.pathname + '#/seance/' + e.target.value; e.target.value = ''; ta.focus(); };
   $('#msg').oninput = e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px'; };
   $('#msg').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(hover:hover)').matches) { e.preventDefault(); send(); } };
   if ($('#delc')) $('#delc').onclick = async () => {
