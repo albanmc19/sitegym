@@ -186,6 +186,28 @@ details.act[open] summary{margin-bottom:8px}
 .tr img{width:44px;height:44px;border-radius:8px;flex:none;background:var(--soft)}
 .tr div{flex:1;min-width:0}.tr button{min-height:42px;padding:6px 14px}
 @media(max-width:600px){#me{margin-left:auto}.sp img{width:80px;height:80px}}
+.exl{display:grid;gap:12px;margin:14px 0}
+.xc{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;transition:border-color .2s,opacity .2s}
+.xc.now{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 14%,transparent)}
+.xc.done{opacity:.78}
+.xh{display:flex;align-items:center;gap:12px}
+.xh input[type=checkbox]{-webkit-appearance:none;appearance:none;display:grid;place-content:center;width:34px;height:34px;padding:0;flex:none;border-radius:50%;border:2px solid var(--line);background:var(--soft);cursor:pointer;transition:background .15s,border-color .15s}
+.xh input[type=checkbox]:checked{background:var(--acc);border-color:var(--acc)}
+.xh input[type=checkbox]:after{content:"";width:8px;height:15px;border:solid var(--acc-ink);border-width:0 3px 3px 0;transform:rotate(45deg) scale(0);margin-top:-3px;transition:transform .15s}
+.xh input[type=checkbox]:checked:after{transform:rotate(45deg) scale(1)}
+.xh .nm{flex:1;margin:0;font-size:20px;cursor:pointer}
+.xc.done .nm{text-decoration:line-through;color:var(--mute)}
+.xn{font-size:13px;color:var(--mute);font-weight:600}
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.pill{display:inline-flex;align-items:center;background:var(--soft);border-radius:99px;padding:5px 12px;font-size:14px;font-weight:600;border:0;color:var(--ink);min-height:0}
+button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transparent);color:var(--acc);min-height:0;padding:5px 12px;font-size:14px}
+.xnote{margin:10px 0 0;color:var(--mute);font-size:15px}
+.xc .last{margin-top:10px}
+.wr{display:flex;gap:8px;margin-top:12px;align-items:stretch}
+.wr .w{flex:1;text-align:center;font-weight:600;font-size:17px}
+.wr button{flex:none;width:52px;min-height:46px;padding:0;font-size:22px}
+.fin{border-color:var(--ok);color:var(--ok);font-weight:600;text-align:center}
+.xc.done .pills,.xc.done .xnote,.xc.done .vid{display:none}
 </style>
 </head>
 <body>
@@ -603,18 +625,25 @@ async function viewSession(id, label) {
     });
   }).catch(() => {});
   const render = () => {
-    const n = s.exercises.filter((_, i) => mine.done[i]).length;
+    const n = s.exercises.filter((_, i) => mine.done[i]).length, nxt = s.exercises.findIndex((_, i) => !mine.done[i]);
     app.innerHTML = `<p class="mute">${label || fmt(s.date)}</p><h1>${esc(s.title)}</h1>
     <p class="mute">${label ? fmt(s.date) + ' · ' : ''}${n}/${s.exercises.length} exercices faits</p>
     <div class="bar"><i style="width:${s.exercises.length ? n / s.exercises.length * 100 : 0}%"></i></div>
-    <div class="card">${s.exercises.map((e, i) => `<div class="ex ${mine.done[i] ? 'done' : ''}"><input type="checkbox" id="c${i}" data-i="${i}" ${mine.done[i] ? 'checked' : ''}>
-      <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div><div class="last" data-last="${i}"></div>${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener noreferrer">▶ Voir la vidéo</a>` : ''}
-      <input class="w" data-w="${i}" value="${esc(mine.w[i])}" placeholder="Charge réellement utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"></div></div>`).join('')}</div>
+    ${n && n === s.exercises.length ? '<div class="card fin">Séance terminée. Bien joué.</div>' : ''}
+    <div class="exl">${s.exercises.map((e, i) => `<article class="xc ${mine.done[i] ? 'done' : ''} ${i === nxt ? 'now' : ''}">
+      <div class="xh"><input type="checkbox" id="c${i}" data-i="${i}" ${mine.done[i] ? 'checked' : ''}><label for="c${i}" class="nm">${esc(e.name)}</label><span class="xn">${i + 1}/${s.exercises.length}</span></div>
+      <div class="pills">${e.sets || e.reps ? `<span class="pill">${e.sets && e.reps ? esc(e.sets) + ' × ' + esc(e.reps) : e.sets ? esc(e.sets) + ' séries' : esc(e.reps) + ' reps'}</span>` : ''}${e.load ? `<span class="pill">Prévu : ${esc(e.load)}</span>` : ''}${parseRest(e.rest) ? `<button class="pill" data-rest="${i}" aria-label="Lancer le chrono de repos">Repos ${esc(e.rest)}</button>` : e.rest ? `<span class="pill">Repos ${esc(e.rest)}</span>` : ''}</div>
+      ${e.notes ? `<p class="xnote">${esc(e.notes)}</p>` : ''}
+      <div class="last" data-last="${i}"></div>
+      <div class="wr"><button class="alt" data-st="${i}" data-d="-2.5" aria-label="Moins 2,5 kg">−</button><input class="w" data-w="${i}" inputmode="decimal" value="${esc(mine.w[i])}" placeholder="Charge utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"><button class="alt" data-st="${i}" data-d="2.5" aria-label="Plus 2,5 kg">+</button></div>
+      ${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener noreferrer">▶ Voir la vidéo</a>` : ''}</article>`).join('')}</div>
     <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
     <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
     ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/admin/${id}">Modifier la séance</a><button class="alt" id="cpy">Copier…</button></p>` : ''}`;
     app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; if (c.checked) { const ex = s.exercises[c.dataset.i], r = parseRest(ex.rest); if (r) startRest(r, ex.name); } save(false); });
     app.querySelectorAll('[data-w]').forEach(i => i.oninput = () => { mine.w[i.dataset.w] = i.value; });
+    app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { const i = b.dataset.st, inp = app.querySelector(`[data-w="${i}"]`), base = parseLoad(inp.value), cur = base != null ? base : (parseLoad(s.exercises[i].load) || 0), v = Math.max(0, Math.round((cur + +b.dataset.d) * 100) / 100); inp.value = fmtNum(v) + ' kg'; mine.w[i] = inp.value; });
+    app.querySelectorAll('[data-rest]').forEach(b => b.onclick = () => { const e = s.exercises[b.dataset.rest]; startRest(parseRest(e.rest), e.name); });
     $('#save').onclick = () => save(true);
     fill();
     if (isAdmin) $('#cpy').onclick = () => copyModal(s);
