@@ -136,11 +136,12 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(-
 </head>
 <body>
 <header><b>SÉANCES</b><nav id="nav"></nav><span id="who" class="mute"></span><button class="alt" id="out" hidden>Quitter</button></header>
-<main id="app"><p class="mute" style="padding-top:20vh;text-align:center">Chargement…</p></main>
+<main id="app"></main>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="ios-compat.js"></script>
 <script>
 // ====== À REMPLIR ======
 const firebaseConfig = {
@@ -153,29 +154,10 @@ const firebaseConfig = {
   measurementId: "G-RNKHDBQ4XF"
 };
 const ADMIN_EMAIL = "albanmc573@gmail.com"; // ton compte Google = admin
-// ID client Web OAuth (Firebase → Authentication → Méthode de connexion → Google → Configuration du SDK Web).
-// Renseigne-le pour une connexion fiable sur iPhone (sans redirection). Format : "123456-abc.apps.googleusercontent.com"
-const GOOGLE_CLIENT_ID = "548938318019-p57tpgdvkhfag4nsnin20q70uqios83g.apps.googleusercontent.com";
 // =======================
 
-if (typeof firebase === 'undefined') {
-  document.getElementById('app').innerHTML = '<div class="card"><b>Impossible de charger Firebase.</b><br><span class="mute">Vérifie ta connexion, désactive le bloqueur de contenu pour ce site, puis recharge la page.</span></div>';
-  throw new Error('Firebase non chargé');
-}
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
-
-// Navigateurs intégrés (Snapchat, Instagram, Facebook…) : la connexion Google y échoue
-const inApp = /Snapchat|Instagram|FBAN|FBAV|FB_IAB|Messenger|TikTok|musical_ly|BytedanceWebview|MicroMessenger|Line\/|Twitter|LinkedInApp|Pinterest|GSA\/[\d.]+/i.test(navigator.userAgent);
-// iPhone / iPad (y compris iPadOS qui se présente comme un Mac) : tous les navigateurs y utilisent WebKit,
-// où la popup/redirection Firebase échoue si le site n'est pas sur le domaine authDomain (ex. GitHub Pages).
-const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const copyLink = async () => {
-  const u = location.href.split('#')[0];
-  try { await navigator.clipboard.writeText(u); alert('Lien copié. Ouvre Safari et colle-le dans la barre d’adresse.'); }
-  catch (e) { prompt('Copie ce lien puis ouvre-le dans Safari :', u); }
-};
-
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
@@ -195,8 +177,6 @@ auth.onAuthStateChanged(u => {
 });
 $('#out').onclick = () => auth.signOut();
 addEventListener('hashchange', route);
-// Filet de sécurité : si Firebase ne répond pas (Safari/iOS), on affiche quand même l'écran de connexion
-setTimeout(() => { if (!user && /Chargement/.test(app.textContent)) route(); }, 4000);
 
 const ICO = {
   home: '<path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
@@ -235,30 +215,334 @@ async function route() {
       <div class="kicker">Salle de sport · suivi à deux</div>
       <h1>Ta séance, prête quand tu l’es.</h1>
       <p class="lead">Retrouve le programme du jour, coche chaque exercice fait, note tes charges et écris directement à ton partenaire d’entraînement.</p>
-      ${inApp ? `<div class="card" style="border-left:4px solid #d92d20"><b>Ouvre ce site dans Safari</b><p class="mute" style="margin:6px 0 10px">La connexion Google ne fonctionne pas dans le navigateur intégré de cette application (Snapchat, Instagram…). Copie le lien, puis colle-le dans Safari.</p><button class="alt" id="cpl" style="width:100%">Copier le lien</button></div>` : ''}
       <button id="g" class="gbtn"><svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg><span>Continuer avec Google</span></button>
-      <div id="gis" hidden style="display:none;justify-content:center;min-height:56px"></div>
       <p class="fine">Connexion sécurisée par Google, sans mot de passe à retenir.</p>
       <ul class="feat">
         <li><b>La séance du jour</b><span>Elle s’ouvre dès la connexion, avec les vidéos d’exécution.</span></li>
         <li><b>Un suivi honnête</b><span>Tu coches ce que tu as vraiment fait et la charge utilisée.</span></li>
         <li><b>Une messagerie intégrée</b><span>Une question sur un exercice ? Écris, la réponse arrive ici.</span></li>
       </ul></section>`;
-    if ($('#cpl')) $('#cpl').onclick = copyLink;
-    if (GOOGLE_CLIENT_ID && isIOS && !inApp) {
-      const start = () => {
-        google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID, ux_mode: 'popup', use_fedcm_for_button: true,
-          callback: r => auth.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(r.credential)).catch(e => alert(e.message))
-        });
-        const box = $('#gis'); if (!box) return;
-        $('#g').style.display = 'none'; box.style.display = 'flex';
-        google.accounts.id.renderButton(box, {type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', locale: 'fr', width: Math.min(box.clientWidth || 320, 400)});
-      };
-      if (window.google && google.accounts) start();
-      else { const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = start; document.head.appendChild(sc); }
-    }
-    if ($('#cpl')) $('#cpl').onclick = copyLink;
     $('#g').onclick = async () => {
       const btn = $('#g'), p = new firebase.auth.GoogleAuthProvider();
-      btn.d
+      btn.disabled = true; btn.querySelector('span').textContent = 'Connexion…';
+      try { await auth.signInWithPopup(p); }
+      catch (e) {
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) return auth.signInWithRedirect(p);
+        if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(e.code)) alert(e.message);
+        btn.disabled = false; btn.querySelector('span').textContent = 'Continuer avec Google';
+      }
+    };
+    return;
+  }
+  const [, page, id, extra] = (location.hash || '#/').split('/');
+  try {
+    if (page === 'seance') return await viewSession(id);
+    if (page === 'calendrier') return await calendarPage();
+    if (page === 'inscrits' && isAdmin) return await usersPage();
+    if (page === 'messages') return await messagesPage(id);
+    if (page === 'seances') return await listSessions();
+    if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id, extra) : await adminList();
+    return await home();
+  } catch (e) { app.innerHTML = `<div class="card">Erreur : ${esc(e.message)}</div>`; }
+}
+
+async function all() {
+  const s = await db.collection('sessions').orderBy('date', 'desc').get();
+  return s.docs.map(d => ({id: d.id, ...d.data()}));
+}
+
+async function home() {
+  const list = await all(), t = today();
+  const s = list.find(x => x.date === t) || [...list].reverse().find(x => x.date > t) || list[0];
+  if (!s) { app.innerHTML = `<h1>Rien de prévu</h1><p class="mute">Aucune séance pour le moment.</p>${isAdmin ? '<a class="btn" href="#/admin/new">Créer la première séance</a>' : ''}`; return; }
+  return viewSession(s.id, s.date === t ? "Aujourd'hui" : s.date > t ? 'Prochaine séance' : 'Dernière séance');
+}
+
+async function listSessions() {
+  const list = await all();
+  app.innerHTML = `<h1>Séances</h1>${seg('list')}` + (list.length ? list.map(s =>
+    `<a class="card item" href="#/seance/${s.id}"><span><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span></span></a>`).join('')
+    : `<p class="mute">Aucune séance.</p>`);
+}
+
+async function adminList() {
+  const list = await all();
+  app.innerHTML = `<h1>Gérer les séances</h1><p class="row"><a class="btn" href="#/admin/new">+ Nouvelle séance</a><a class="btn alt" href="#/inscrits">Inscrits</a></p>` + (list.length ? list.map(s =>
+    `<div class="card"><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span>
+    <p class="row" style="margin:10px 0 0;flex-wrap:wrap"><a class="btn alt" href="#/seance/${s.id}">Voir le suivi</a><a class="btn alt" href="#/admin/${s.id}">Modifier</a><button class="alt" data-dup="${s.id}">Copier…</button><button class="del" data-del="${s.id}">Supprimer</button></p></div>`).join('')
+    : `<p class="mute">Aucune séance créée.</p>`);
+  const by = id => list.find(s => s.id === id);
+  app.querySelectorAll('[data-dup]').forEach(b => b.onclick = () => copyModal(by(b.dataset.dup)));
+  app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (confirm('Supprimer cette séance ?')) { await db.collection('sessions').doc(b.dataset.del).delete(); adminList(); }
+  });
+}
+
+async function viewSession(id, label) {
+  const doc = await db.collection('sessions').doc(id).get();
+  if (!doc.exists) { app.innerHTML = '<h1>Séance introuvable</h1>'; return; }
+  const s = doc.data();
+  const logRef = db.collection('logs').doc(id + '_' + user.uid);
+  const mine = Object.assign({done: {}, w: {}, note: ''}, (await logRef.get()).data());
+  mine.w = mine.w || {};
+  const render = () => {
+    const n = s.exercises.filter((_, i) => mine.done[i]).length;
+    app.innerHTML = `<p class="mute">${label || fmt(s.date)}</p><h1>${esc(s.title)}</h1>
+    <p class="mute">${label ? fmt(s.date) + ' · ' : ''}${n}/${s.exercises.length} exercices faits</p>
+    <div class="bar"><i style="width:${s.exercises.length ? n / s.exercises.length * 100 : 0}%"></i></div>
+    <div class="card">${s.exercises.map((e, i) => `<div class="ex ${mine.done[i] ? 'done' : ''}"><input type="checkbox" id="c${i}" data-i="${i}" ${mine.done[i] ? 'checked' : ''}>
+      <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div>${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Voir la vidéo</a>` : ''}
+      <input class="w" data-w="${i}" value="${esc(mine.w[i])}" placeholder="Charge réellement utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"></div></div>`).join('')}</div>
+    <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
+    <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
+    ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/admin/${id}">Modifier la séance</a><button class="alt" id="cpy">Copier…</button></p>` : ''}`;
+    app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; save(false); });
+    app.querySelectorAll('[data-w]').forEach(i => i.oninput = () => { mine.w[i.dataset.w] = i.value; });
+    $('#save').onclick = () => save(true);
+    if (isAdmin) $('#cpy').onclick = () => copyModal(s);
+    if (isAdmin) db.collection('logs').where('sessionId', '==', id).get().then(q => {
+      $('#track').innerHTML = q.empty ? 'Personne n’a encore validé d’exercice.' : q.docs.map(d => {
+        const l = d.data(), ok = s.exercises.map((e, i) => [e, i]).filter(([, i]) => l.done && l.done[i]);
+        return `<div class="card"><b>${esc(l.name)}</b> : ${ok.length}/${s.exercises.length} faits<br>${ok.map(([e, i]) => '✓ ' + esc(e.name) + (l.w && l.w[i] ? ' — ' + esc(l.w[i]) : '')).join('<br>') || '<span class="mute">rien de coché</span>'}${l.note ? `<br><i>« ${esc(l.note)} »</i>` : ''}</div>`;
+      }).join('');
+    });
+  };
+  async function save(manual) {
+    if ($('#note')) mine.note = $('#note').value;
+    await logRef.set({uid: user.uid, name: user.displayName || user.email, sessionId: id, done: mine.done, w: mine.w, note: mine.note, updatedAt: Date.now()});
+    if (manual) $('#ok').textContent = 'Enregistré'; else render();
+  }
+  render();
+}
+
+const when = t => new Date(t).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+const dayKey = t => new Date(t - new Date(t).getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+const dayLabel = t => { const k = dayKey(t), n = Date.now(); return k === dayKey(n) ? "Aujourd'hui" : k === dayKey(n - 864e5) ? 'Hier' : fmt(k); };
+const whenShort = t => dayKey(t) === dayKey(Date.now()) ? when(t) : new Date(t).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'});
+const linkify = t => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">$1</a>');
+
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const ST = {done: 'Terminée', part: 'En cours', miss: 'Manquée', plan: 'Prévue'};
+const seg = cur => `<div class="seg"><a href="#/calendrier" class="${cur === 'cal' ? 'on' : ''}">Calendrier</a><a href="#/seances" class="${cur === 'list' ? 'on' : ''}">Liste</a></div>`;
+const clone = x => JSON.parse(JSON.stringify(x));
+
+function copyModal(src) {
+  const dates = [], el = document.createElement('div');
+  el.className = 'modal';
+  el.innerHTML = `<div class="sheet" role="dialog" aria-label="Copier la séance"><h2 style="margin-top:0">Copier « ${esc(src.title)} »</h2>
+    <p class="mute">Choisis une ou plusieurs dates. Chaque date reçoit une copie complète : exercices, charges, consignes et vidéos.</p>
+    <div class="row" style="flex-wrap:nowrap"><input type="date" id="cd" value="${today()}" aria-label="Date de la copie"><button class="alt" id="ca" style="flex:none">Ajouter</button></div>
+    <div id="cc"></div>
+    <p class="row" style="margin-top:18px"><button class="alt" id="cnl">Annuler</button><button id="cok">Copier</button></p></div>`;
+  document.body.appendChild(el);
+  const q = s => el.querySelector(s), close = () => el.remove();
+  const chips = () => {
+    q('#cc').innerHTML = dates.map((d, i) => `<span class="chip">${esc(fmt(d))}<button class="x" data-r="${i}" aria-label="Retirer cette date">✕</button></span>`).join('');
+    el.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { dates.splice(+b.dataset.r, 1); chips(); });
+  };
+  q('#ca').onclick = () => { const v = q('#cd').value; if (v && !dates.includes(v)) { dates.push(v); dates.sort(); chips(); } };
+  q('#cnl').onclick = close;
+  el.onclick = e => { if (e.target === el) close(); };
+  q('#cok').onclick = async () => {
+    const v = q('#cd').value, list = dates.length ? dates : (v ? [v] : []);
+    if (!list.length) return;
+    const b = db.batch(), ids = [];
+    list.forEach(d => { const r = db.collection('sessions').doc(); ids.push(r.id); b.set(r, {title: src.title, date: d, exercises: clone(src.exercises)}); });
+    try { await b.commit(); } catch (e) { return alert(e.message); }
+    close();
+    if (ids.length === 1) location.hash = '#/admin/' + ids[0];
+    else if ((location.hash || '') === '#/calendrier') calendarPage(); else location.hash = '#/calendrier';
+  };
+}
+
+let cal = null;
+async function calendarPage() {
+  app.classList.add('wide');
+  const t0 = new Date();
+  if (!cal) cal = {y: t0.getFullYear(), m: t0.getMonth(), sel: today()};
+  const sessions = await all(), byDay = {}, cache = {};
+  sessions.forEach(s => (byDay[s.date] = byDay[s.date] || []).push(s));
+  const status = s => { const n = cache[s.id] || 0, tot = s.exercises.length; return tot && n >= tot ? 'done' : n ? 'part' : s.date < today() ? 'miss' : 'plan'; };
+  const loadLogs = async () => {
+    const pre = `${cal.y}-${pad(cal.m + 1)}`;
+    await Promise.all(sessions.filter(s => s.date.startsWith(pre) && !(s.id in cache)).map(async s => {
+      try { const d = await db.collection('logs').doc(s.id + '_' + user.uid).get(); cache[s.id] = d.exists ? Object.values(d.data().done || {}).filter(Boolean).length : 0; }
+      catch (e) { cache[s.id] = 0; }
+    }));
+  };
+  const go = async dm => {
+    cal.m += dm; if (cal.m < 0) { cal.m = 11; cal.y--; } if (cal.m > 11) { cal.m = 0; cal.y++; }
+    const pre = `${cal.y}-${pad(cal.m + 1)}`; cal.sel = today().startsWith(pre) ? today() : pre + '-01';
+    await loadLogs(); draw();
+  };
+  const draw = () => {
+    if (!$('#app') || !app.classList.contains('wide')) return;
+    const first = new Date(cal.y, cal.m, 1), off = (first.getDay() + 6) % 7, dim = new Date(cal.y, cal.m + 1, 0).getDate();
+    const cells = Math.ceil((off + dim) / 7) * 7, pre = `${cal.y}-${pad(cal.m + 1)}`;
+    const ms = sessions.filter(s => s.date.startsWith(pre)), done = ms.filter(s => status(s) === 'done').length;
+    let grid = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(w => `<div class="cw">${w}</div>`).join('');
+    for (let i = 0; i < cells; i++) {
+      const d = new Date(cal.y, cal.m, 1 - off + i), k = iso(d), list = byDay[k] || [];
+      grid += `<button class="cd ${d.getMonth() !== cal.m ? 'other' : ''} ${k === today() ? 'today' : ''} ${k === cal.sel ? 'sel' : ''}" data-d="${k}" aria-label="${esc(fmt(k))}${list.length ? ', ' + list.length + ' séance' + (list.length > 1 ? 's' : '') : ''}"><span class="n">${d.getDate()}</span>
+        <span class="dots">${list.slice(0, 3).map(s => `<i class="d ${status(s)}"></i>`).join('')}</span>
+        ${list.slice(0, 2).map(s => `<span class="ct ${status(s)}">${esc(s.title)}</span>`).join('')}${list.length > 2 ? `<span class="ct">+${list.length - 2}</span>` : ''}</button>`;
+    }
+    const sel = byDay[cal.sel] || [], label = dayLabel(new Date(cal.sel + 'T12:00').getTime());
+    app.innerHTML = `<h1>Calendrier</h1>${seg('cal')}
+      <div class="chead"><h2>${first.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'})}</h2><button class="alt" id="cprev" aria-label="Mois précédent">‹</button><button class="alt" id="ctoday">Aujourd’hui</button><button class="alt" id="cnext" aria-label="Mois suivant">›</button></div>
+      <p class="mute" style="margin:0 0 8px">${ms.length} séance${ms.length > 1 ? 's' : ''} ce mois · ${done} terminée${done > 1 ? 's' : ''}</p>
+      <div class="cgrid" id="cg">${grid}</div>
+      <div class="leg"><span><i class="d"></i>Prévue</span><span><i class="d done"></i>Terminée</span><span><i class="d part"></i>En cours</span><span><i class="d miss"></i>Manquée</span></div>
+      <h2 id="dayp" style="text-transform:capitalize">${esc(label)}</h2>
+      ${sel.length ? sel.map(s => { const st = status(s); return `<a class="card item" href="#/seance/${s.id}"><span><b>${esc(s.title)}</b><br><span class="mute">${s.exercises.length} exercices${cache[s.id] ? ' · ' + cache[s.id] + ' faits' : ''}</span></span><b class="st-${st}">${ST[st]}</b></a>`; }).join('') : '<p class="mute">Rien de prévu ce jour.</p>'}
+      ${isAdmin ? `<div class="card"><b>Ajouter à ce jour</b><p style="margin:10px 0 0"><a class="btn" href="#/admin/new/${cal.sel}">+ Nouvelle séance</a></p>${sessions.length ? `<label for="cps">Copier une séance existante ici</label><select id="cps">${sessions.map(s => `<option value="${s.id}">${esc(s.title)} — ${esc(fmt(s.date))}</option>`).join('')}</select><p style="margin:10px 0 0"><button class="alt" id="cph">Copier ici</button></p>` : ''}</div>` : ''}`;
+    app.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
+      cal.sel = b.dataset.d; const d = new Date(cal.sel + 'T12:00');
+      if (d.getMonth() !== cal.m) { cal.m = d.getMonth(); cal.y = d.getFullYear(); await loadLogs(); }
+      draw(); const p = $('#dayp'); if (p) p.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    });
+    $('#cprev').onclick = () => go(-1); $('#cnext').onclick = () => go(1);
+    $('#ctoday').onclick = async () => { const n = new Date(); cal.y = n.getFullYear(); cal.m = n.getMonth(); cal.sel = today(); await loadLogs(); draw(); };
+    if ($('#cph')) $('#cph').onclick = async () => {
+      const s = sessions.find(x => x.id === $('#cps').value);
+      try { await db.collection('sessions').add({title: s.title, date: cal.sel, exercises: clone(s.exercises)}); calendarPage(); } catch (e) { alert(e.message); }
+    };
+    let x0 = null; const g = $('#cg');
+    g.ontouchstart = e => { x0 = e.touches[0].clientX; };
+    g.ontouchend = e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 70) go(dx < 0 ? 1 : -1); };
+  };
+  await loadLogs(); draw();
+}
+
+async function usersPage() {
+  const [us, lg] = await Promise.all([db.collection('users').get(), db.collection('logs').get()]);
+  const stats = {};
+  lg.docs.forEach(d => {
+    const l = d.data(), c = stats[l.uid] || (stats[l.uid] = {seances: 0, ex: 0});
+    const n = Object.values(l.done || {}).filter(Boolean).length;
+    if (n) { c.seances++; c.ex += n; }
+  });
+  const list = us.docs.map(d => ({uid: d.id, ...d.data()})).sort((a, b) => (b.seen || 0) - (a.seen || 0));
+  app.innerHTML = `<h1>Inscrits</h1><p class="mute">${list.length} compte${list.length > 1 ? 's' : ''} connecté${list.length > 1 ? 's' : ''} au moins une fois</p>
+    <input id="q" type="search" placeholder="Rechercher un nom ou un e-mail" aria-label="Rechercher"><div id="ul" style="margin-top:8px"></div>`;
+  const draw = () => {
+    const q = $('#q').value.trim().toLowerCase();
+    const f = list.filter(u => ((u.name || '') + ' ' + (u.email || '')).toLowerCase().includes(q));
+    $('#ul').innerHTML = f.length ? f.map(u => {
+      const st = stats[u.uid] || {seances: 0, ex: 0}, adm = (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      return `<div class="card usr"><div class="av">${esc((u.name || '?').trim()[0] || '?').toUpperCase()}</div>
+        <div style="flex:1;min-width:0"><b>${esc(u.name)}</b>${adm ? ' <span class="tag">Admin</span>' : ''}${u.uid === user.uid ? ' <span class="mute">(toi)</span>' : ''}<br>
+        <span class="mute" style="overflow-wrap:anywhere">${esc(u.email)}</span><br>
+        <span class="mute">Vu ${u.seen ? dayLabel(u.seen).toLowerCase() + ' à ' + when(u.seen) : 'jamais'} · ${st.seances} séance${st.seances > 1 ? 's' : ''} suivie${st.seances > 1 ? 's' : ''} · ${st.ex} exercice${st.ex > 1 ? 's' : ''}</span></div>
+        ${u.uid !== user.uid ? `<a class="btn alt" href="#/messages/${esc(u.uid)}">Message</a>` : ''}</div>`;
+    }).join('') : '<p class="mute">Aucun résultat.</p>';
+  };
+  $('#q').oninput = draw; draw();
+}
+
+async function messagesPage(uid) {
+  if (!isAdmin) return thread(user.uid, user.displayName || user.email);
+  if (uid) return thread(uid);
+  app.innerHTML = `<h1>Messages</h1><p><button id="newm" class="alt">+ Nouveau message</button></p><div id="usrs" hidden></div><div id="inbox"></div>`;
+  const us = (await db.collection('users').get().catch(() => ({docs: []}))).docs.map(d => ({uid: d.id, ...d.data()})).filter(u => u.uid !== user.uid);
+  $('#usrs').innerHTML = us.length ? us.map(u => `<a class="card item" href="#/messages/${esc(u.uid)}"><b>${esc(u.name)}</b><span class="mute">${esc(u.email)}</span></a>`).join('') : '<p class="mute">Personne ne s’est encore connecté.</p>';
+  $('#newm').onclick = () => { $('#usrs').hidden = !$('#usrs').hidden; };
+  let ms = [];
+  const draw = () => {
+    if (!$('#inbox')) return;
+    const g = {};
+    ms.forEach(m => {
+      const c = g[m.uid] || (g[m.uid] = {uid: m.uid, name: m.name, last: m, unread: 0});
+      if (m.createdAt >= c.last.createdAt) c.last = m;
+      if (m.from === 'user') { c.name = m.name; if (!m.readByAdmin) c.unread++; }
+    });
+    const list = Object.values(g).sort((a, b) => b.last.createdAt - a.last.createdAt);
+    $('#inbox').innerHTML = list.length ? list.map(c => `<a class="card item" href="#/messages/${esc(c.uid)}"><span><b>${esc(c.name)}</b>${c.unread ? `<span class="bd" style="position:static">${c.unread}</span>` : ''}<br><span class="mute">${esc((c.last.from === 'admin' ? 'Toi : ' : '') + c.last.text.slice(0, 80))}</span></span><span class="mute">${whenShort(c.last.createdAt)}</span></a>`).join('') : '<p class="mute">Aucun message pour l’instant.</p>';
+  };
+  pageUnsub = db.collection('messages').onSnapshot(sn => { ms = sn.docs.map(d => d.data()); draw(); }, e => { if ($('#inbox')) $('#inbox').textContent = 'Erreur : ' + e.message; });
+}
+
+async function thread(uid, nameHint) {
+  const mine = isAdmin ? 'admin' : 'user', other = isAdmin ? 'user' : 'admin', flag = isAdmin ? 'readByAdmin' : 'readByUser';
+  let name = nameHint;
+  if (isAdmin && !name) { const d = await db.collection('users').doc(uid).get().catch(() => null); name = d && d.exists ? d.data().name : null; }
+  app.innerHTML = `${isAdmin ? '<p><a class="link" href="#/messages">← Tous les messages</a></p>' : ''}<h1 id="tt">${isAdmin ? esc(name || 'Conversation') : 'Messages'}</h1>
+  ${isAdmin ? '<p><button class="link" id="delc" hidden>Supprimer la conversation</button></p>' : '<p class="mute">Écris à Alban, sa réponse apparaîtra ici en direct.</p>'}
+  <div id="thr"></div>
+  <div class="comp"><textarea id="msg" rows="1" maxlength="1000" placeholder="Écrire un message…" aria-label="Message"></textarea><button id="send">Envoyer</button></div>`;
+  let ms = [], first = true;
+  const draw = () => {
+    const box = $('#thr'); if (!box) return;
+    const nearBottom = innerHeight + scrollY >= document.body.scrollHeight - 160;
+    let last = '';
+    box.innerHTML = ms.length ? ms.map(m => {
+      const k = dayKey(m.createdAt), sep = k !== last ? `<div class="day">${dayLabel(m.createdAt)}</div>` : ''; last = k;
+      const me = m.from === mine, seen = me && (isAdmin ? m.readByUser : m.readByAdmin);
+      return `${sep}<div class="bub ${me ? 'me' : 'ot'}">${linkify(m.text)}<small>${when(m.createdAt)}${seen ? ' · Vu' : ''}${me || isAdmin ? ` · <button class="x" data-del="${m.id}">Supprimer</button>` : ''}</small></div>`;
+    }).join('') : '<p class="mute">Aucun message pour l’instant.</p>';
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('Supprimer ce message ?')) db.collection('messages').doc(b.dataset.del).delete().catch(e => alert(e.message)); });
+    if ($('#delc')) $('#delc').hidden = !ms.length;
+    if (nearBottom || first) window.scrollTo(0, document.body.scrollHeight);
+  };
+  pageUnsub = db.collection('messages').where('uid', '==', uid).onSnapshot(sn => {
+    ms = sn.docs.map(d => ({id: d.id, ...d.data()})).sort((a, b) => a.createdAt - b.createdAt);
+    if (isAdmin && !name) { const u = ms.find(m => m.from === 'user'); if (u && $('#tt')) { name = u.name; $('#tt').textContent = name; } }
+    ms.filter(m => m.from === other && !m[flag]).forEach(m => db.collection('messages').doc(m.id).update({[flag]: true}).catch(() => {}));
+    draw(); first = false;
+  }, e => { if ($('#thr')) $('#thr').textContent = 'Erreur : ' + e.message; });
+  const send = async () => {
+    const ta = $('#msg'), text = ta.value.trim(); if (!text) return;
+    ta.value = ''; ta.style.height = 'auto';
+    try { await db.collection('messages').add({uid, name: name || (isAdmin ? 'Utilisateur' : user.displayName || user.email), from: mine, text, createdAt: Date.now(), readByAdmin: isAdmin, readByUser: !isAdmin}); }
+    catch (e) { ta.value = text; alert(e.message); }
+  };
+  $('#send').onclick = send;
+  $('#msg').oninput = e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px'; };
+  $('#msg').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(hover:hover)').matches) { e.preventDefault(); send(); } };
+  if ($('#delc')) $('#delc').onclick = async () => {
+    if (!confirm('Supprimer toute la conversation ?')) return;
+    const b = db.batch(); ms.forEach(m => b.delete(db.collection('messages').doc(m.id)));
+    await b.commit(); location.hash = '#/messages';
+  };
+}
+
+async function editSession(id, preset) {
+  let s = {title: '', date: /^\d{4}-\d{2}-\d{2}$/.test(preset || '') ? preset : today(), exercises: [blank()]};
+  if (id) { const d = await db.collection('sessions').doc(id).get(); if (d.exists) s = d.data(); }
+  const known = new Set(DEFAULTS);
+  (await all()).forEach(x => x.exercises.forEach(e => known.add(e.name)));
+  const field = (i, k, ph, v) => `<input data-i="${i}" data-k="${k}" value="${esc(v)}" placeholder="${ph}" aria-label="${ph}">`;
+  const draw = () => {
+    app.innerHTML = `<h1>${id ? 'Modifier la séance' : 'Nouvelle séance'}</h1>
+    <datalist id="exlist">${[...known].map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+    <label for="t">Titre</label><input id="t" value="${esc(s.title)}" placeholder="Pecs / triceps">
+    <label for="d">Date</label><input id="d" type="date" value="${s.date}">
+    <h2>Exercices (${s.exercises.length})</h2>${s.exercises.map((e, i) => `<div class="card">
+      <input data-i="${i}" data-k="name" list="exlist" value="${esc(e.name)}" placeholder="Nom de l'exercice" aria-label="Nom de l'exercice ${i + 1}">
+      <div class="row" style="margin-top:8px">${field(i, 'sets', 'Séries', e.sets)}${field(i, 'reps', 'Reps', e.reps)}${field(i, 'load', 'Charge', e.load)}${field(i, 'rest', 'Repos', e.rest)}</div>
+      <div style="margin-top:8px">${field(i, 'notes', 'Consigne (tempo, technique…)', e.notes)}</div>
+      <div style="margin-top:8px"><input type="url" inputmode="url" autocapitalize="off" data-i="${i}" data-k="video" value="${esc(e.video)}" placeholder="Lien vidéo YouTube (optionnel)" aria-label="Lien vidéo YouTube"></div>
+      <p class="row" style="margin:10px 0 0;flex:none"><button class="link" data-up="${i}" ${i ? '' : 'disabled'}>Monter</button><button class="link" data-down="${i}" ${i < s.exercises.length - 1 ? '' : 'disabled'}>Descendre</button><button class="link" data-cp="${i}">Dupliquer</button><button class="link" data-rm="${i}">Retirer</button></p></div>`).join('')}
+    <p class="row stick"><button class="alt" id="add">+ Ajouter un exercice</button><button id="sv">Enregistrer la séance</button></p>`;
+    const read = () => { s.title = $('#t').value; s.date = $('#d').value; app.querySelectorAll('[data-k]').forEach(i => s.exercises[i.dataset.i][i.dataset.k] = i.value); };
+    const on = (sel, f) => app.querySelectorAll(sel).forEach(b => b.onclick = () => { read(); f(+Object.values(b.dataset)[0]); draw(); });
+    $('#add').onclick = () => { read(); s.exercises.push(blank()); draw(); };
+    on('[data-rm]', i => s.exercises.splice(i, 1));
+    on('[data-cp]', i => s.exercises.splice(i + 1, 0, {...s.exercises[i]}));
+    on('[data-up]', i => { if (i) [s.exercises[i - 1], s.exercises[i]] = [s.exercises[i], s.exercises[i - 1]]; });
+    on('[data-down]', i => { if (i < s.exercises.length - 1) [s.exercises[i + 1], s.exercises[i]] = [s.exercises[i], s.exercises[i + 1]]; });
+    $('#sv').onclick = async () => {
+      read(); const ex = s.exercises.filter(e => e.name.trim()).map(e => ({...e, name: e.name.trim(), video: (e.video || '').trim()}));
+      const bad = ex.find(e => e.video && !okUrl(e.video)); if (bad) return alert('Lien vidéo invalide pour « ' + bad.name + ' » : il doit commencer par https://');
+      if (!s.title.trim() || !ex.length || !s.date) return alert('Il faut un titre, une date et au moins un exercice.');
+      const ref = id ? db.collection('sessions').doc(id) : db.collection('sessions').doc();
+      await ref.set({title: s.title.trim(), date: s.date, exercises: ex});
+      location.hash = '#/seance/' + ref.id;
+    };
+  };
+  draw();
+}
+</script>
+</body>
+</html>
