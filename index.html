@@ -43,20 +43,38 @@ nav{display:flex;gap:16px}
 .btn{text-align:center}
 .vid{display:inline-block;margin-top:6px;padding:8px 12px;border:1px solid var(--acc);border-radius:4px;color:var(--acc);font-weight:600;text-decoration:none}
 .stick{position:sticky;bottom:0;background:var(--bg);padding:10px 0 calc(10px + env(safe-area-inset-bottom));margin:0}
+nav a .ic{display:none}
+.bd{background:#d92d20;color:#fff;border-radius:99px;font-size:12px;font-weight:700;padding:1px 7px;margin-left:6px;line-height:1.5}
+.bub{max-width:84%;padding:10px 14px;border-radius:18px;margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.bub.me{margin-left:auto;background:var(--acc);color:var(--acc-ink);border-bottom-right-radius:6px}
+.bub.ot{background:var(--card);border:1px solid var(--line);border-bottom-left-radius:6px}
+.bub small{display:block;opacity:.7;font-size:12px;margin-top:2px}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:8px 0 4px}
+.bar i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .3s}
 @media(max-width:600px){
- header{padding:10px 14px;gap:6px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
+ body{font-size:17px}
+ header{padding:calc(10px + env(safe-area-inset-top)) 16px 10px;gap:8px;border-bottom-width:1px}
  header b{font-size:22px}
- nav{order:3;width:100%;overflow-x:auto;white-space:nowrap;padding-bottom:2px}
- nav a{padding:10px 2px;display:inline-block}
- main{padding:16px 14px calc(90px + env(safe-area-inset-bottom))}
- button,.btn{min-height:48px;padding:12px 16px}
+ #who{font-size:14px;margin-left:auto}
+ header #out{min-height:36px;padding:6px 12px;font-size:14px;border-radius:8px}
+ nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);justify-content:space-around;gap:0;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+ nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;border:0;padding:6px 2px;color:var(--mute);position:relative}
+ nav a.on{color:var(--acc)}
+ nav a .ic{display:block;width:26px;height:26px}
+ nav a .bd{position:absolute;top:0;left:54%;margin:0}
+ main{padding:18px 14px calc(100px + env(safe-area-inset-bottom))}
+ h1{font-size:40px}
+ .card{border-radius:14px;padding:14px 12px}
+ button,.btn{min-height:50px;border-radius:12px;padding:12px 16px;font-size:17px}
  button.del{padding:12px 16px}
  .link{padding:12px 8px}
- .ex input[type=checkbox]{width:30px;height:30px}
+ input,textarea{padding:12px;border-radius:10px}
  .ex{gap:12px}
- .card{padding:14px 12px}
+ .ex input[type=checkbox]{width:30px;height:30px}
  .row>*{flex:1 1 45%}
+ #save,#send{width:100%}
  .vid{padding:11px 14px}
+ .stick{bottom:calc(64px + env(safe-area-inset-bottom));padding:10px 0}
 }
 </style>
 </head>
@@ -95,18 +113,35 @@ let user = null, isAdmin = false;
 
 auth.onAuthStateChanged(u => {
   user = u; isAdmin = !!u && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  $('#out').hidden = !u;
+  $('#out').hidden = !u; watchMsgs();
   $('#who').textContent = u ? (u.displayName || u.email).split(' ')[0] + (isAdmin ? ' (admin)' : '') : '';
   route();
 });
 $('#out').onclick = () => auth.signOut();
 addEventListener('hashchange', route);
 
+const ICO = {
+  home: '<path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
+  pen: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'
+};
+const icon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[n]}</svg>`;
+let unread = 0, unsub = null;
 function nav() {
   const h = location.hash || '#/';
-  const l = [['#/', "Aujourd'hui"], ['#/seances', 'Séances']];
-  if (isAdmin) l.push(['#/admin', 'Gérer'], ['#/admin/new', 'Nouvelle séance']);
-  $('#nav').innerHTML = user ? l.map(([a, t]) => `<a href="${a}" class="${h === a ? 'on' : ''}">${t}</a>`).join('') : '';
+  const l = [['#/', 'home', "Aujourd'hui"], ['#/seances', 'list', 'Séances'], ['#/messages', 'chat', 'Messages']];
+  if (isAdmin) l.push(['#/admin', 'pen', 'Gérer']);
+  $('#nav').innerHTML = user ? l.map(([a, i, t]) => `<a href="${a}" class="${(a === '#/' ? h === '#/' : h.startsWith(a)) ? 'on' : ''}">${icon(i)}<span>${t}</span>${a === '#/messages' && unread ? `<span class="bd">${unread}</span>` : ''}</a>`).join('') : '';
+}
+function watchMsgs() {
+  if (unsub) unsub(); unsub = null; unread = 0;
+  if (!user) return;
+  const q = isAdmin ? db.collection('messages') : db.collection('messages').where('uid', '==', user.uid);
+  unsub = q.onSnapshot(sn => {
+    unread = sn.docs.filter(d => { const m = d.data(); return isAdmin ? m.from === 'user' && !m.readByAdmin : m.from === 'admin' && !m.readByUser; }).length;
+    nav();
+  }, () => {});
 }
 
 async function route() {
@@ -119,6 +154,7 @@ async function route() {
   const [, page, id] = (location.hash || '#/').split('/');
   try {
     if (page === 'seance') return await viewSession(id);
+    if (page === 'messages') return await messagesPage(id);
     if (page === 'seances') return await listSessions();
     if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id) : await adminList();
     return await home();
@@ -172,6 +208,7 @@ async function viewSession(id, label) {
     const n = s.exercises.filter((_, i) => mine.done[i]).length;
     app.innerHTML = `<p class="mute">${label || fmt(s.date)}</p><h1>${esc(s.title)}</h1>
     <p class="mute">${label ? fmt(s.date) + ' · ' : ''}${n}/${s.exercises.length} exercices faits</p>
+    <div class="bar"><i style="width:${s.exercises.length ? n / s.exercises.length * 100 : 0}%"></i></div>
     <div class="card">${s.exercises.map((e, i) => `<div class="ex ${mine.done[i] ? 'done' : ''}"><input type="checkbox" id="c${i}" data-i="${i}" ${mine.done[i] ? 'checked' : ''}>
       <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div>${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Voir la vidéo</a>` : ''}
       <input class="w" data-w="${i}" value="${esc(mine.w[i])}" placeholder="Charge réellement utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"></div></div>`).join('')}</div>
@@ -194,6 +231,49 @@ async function viewSession(id, label) {
     if (manual) $('#ok').textContent = 'Enregistré'; else render();
   }
   render();
+}
+
+const when = t => new Date(t).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+async function messagesPage(uid) {
+  if (!isAdmin) return thread(user.uid, user.displayName || user.email);
+  if (uid) return thread(uid);
+  const q = await db.collection('messages').get(), g = {};
+  q.docs.forEach(d => {
+    const m = d.data(), c = g[m.uid] || (g[m.uid] = {uid: m.uid, name: m.name, last: m, unread: 0});
+    if (m.createdAt >= c.last.createdAt) c.last = m;
+    if (m.from === 'user') { c.name = m.name; if (!m.readByAdmin) c.unread++; }
+  });
+  const list = Object.values(g).sort((a, b) => b.last.createdAt - a.last.createdAt);
+  app.innerHTML = `<h1>Messages</h1>` + (list.length ? list.map(c =>
+    `<a class="card item" href="#/messages/${esc(c.uid)}"><span><b>${esc(c.name)}</b>${c.unread ? `<span class="bd" style="position:static">${c.unread}</span>` : ''}<br><span class="mute">${esc((c.last.from === 'admin' ? 'Toi : ' : '') + c.last.text.slice(0, 80))}</span></span><span class="mute">${when(c.last.createdAt)}</span></a>`).join('')
+    : `<p class="mute">Aucun message pour l’instant.</p>`);
+}
+
+async function thread(uid, nameHint) {
+  const q = await db.collection('messages').where('uid', '==', uid).get();
+  const ms = q.docs.map(d => ({id: d.id, ...d.data()})).sort((a, b) => a.createdAt - b.createdAt);
+  const name = nameHint || (ms.find(m => m.from === 'user') || {}).name || 'Utilisateur';
+  const mine = isAdmin ? 'admin' : 'user', other = isAdmin ? 'user' : 'admin', flag = isAdmin ? 'readByAdmin' : 'readByUser';
+  ms.filter(m => m.from === other && !m[flag]).forEach(m => db.collection('messages').doc(m.id).update({[flag]: true}).catch(() => {}));
+  app.innerHTML = `${isAdmin ? '<p><a class="link" href="#/messages">← Tous les messages</a></p>' : ''}<h1>${isAdmin ? esc(name) : 'Messages'}</h1>
+  ${isAdmin ? '' : '<p class="mute">Écris à Alban, sa réponse apparaîtra ici.</p>'}
+  <div>${ms.length ? ms.map(m => `<div class="bub ${m.from === mine ? 'me' : 'ot'}">${esc(m.text)}<small>${when(m.createdAt)}</small></div>`).join('') : '<p class="mute">Aucun message pour l’instant.</p>'}</div>
+  <label for="msg">${isAdmin ? 'Répondre' : 'Ton message'}</label><textarea id="msg" rows="3" maxlength="1000" placeholder="Écris ton message…"></textarea>
+  <p class="row"><button id="send">Envoyer</button>${isAdmin && ms.length ? '<button class="del" id="delc">Supprimer la conversation</button>' : ''}</p>`;
+  if (ms.length > 4) window.scrollTo(0, document.body.scrollHeight);
+  $('#send').onclick = async () => {
+    const text = $('#msg').value.trim(); if (!text) return;
+    $('#send').disabled = true;
+    try {
+      await db.collection('messages').add({uid, name, from: mine, text, createdAt: Date.now(), readByAdmin: isAdmin, readByUser: !isAdmin});
+      thread(uid, nameHint);
+    } catch (e) { alert(e.message); $('#send').disabled = false; }
+  };
+  if ($('#delc')) $('#delc').onclick = async () => {
+    if (!confirm('Supprimer toute la conversation ?')) return;
+    const b = db.batch(); ms.forEach(m => b.delete(db.collection('messages').doc(m.id)));
+    await b.commit(); location.hash = '#/messages';
+  };
 }
 
 async function editSession(id) {
