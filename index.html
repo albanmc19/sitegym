@@ -90,7 +90,7 @@ body.out header{display:none}
 .lead{font-size:18px;color:var(--mute);margin:0 0 26px}
 .gbtn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:56px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:12px;font-size:17px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
 .gbtn:disabled{opacity:.7}
-.fine{font-size:13px;color:var(--mute);margin:10px 0 34px;text-align:center}
+.fine{font-size:13px;color:var(--mute);margin:10px 0 22px;text-align:center}
 .feat{list-style:none;padding:0;margin:0;display:grid;gap:10px}
 .feat li{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:14px 16px}
 .feat b{display:block;font:800 21px 'Barlow Condensed',sans-serif;letter-spacing:.02em}
@@ -132,6 +132,11 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(-
 @media(min-width:601px){.modal{place-items:center}.sheet{border-radius:18px}}
 .chip{display:inline-flex;gap:6px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:6px 8px 6px 14px;margin:8px 8px 0 0}
 .chip .x{padding:6px;text-decoration:none}
+.or{display:flex;align-items:center;gap:12px;color:var(--mute);font-size:14px;margin:0 0 14px}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+.err{color:#d6382f;font-weight:600;margin:10px 0 0}
+.pw{display:flex;gap:8px}.pw input{flex:1;min-width:0}.pw button{flex:none;min-height:44px}
+.hero #emailbox{margin:0 0 30px}
 </style>
 </head>
 <body>
@@ -142,7 +147,6 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(-
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="ios-compat.js"></script>
-<script src="email-login.js"></script>
 <script>
 // ====== À REMPLIR ======
 const firebaseConfig = {
@@ -169,11 +173,17 @@ const detail = e => [e.sets && e.reps ? `${e.sets} × ${e.reps}` : (e.sets && e.
 const DEFAULTS = ['Développé couché prise contre pecs','Chest press (pecs)','Pec fly banc','Mollet extension','Genou extension','Développé couché','Développé incliné','Pompes','Dips','Tractions','Rowing barre','Tirage vertical','Développé militaire','Élévations latérales','Curl biceps','Extension triceps','Squat','Presse à cuisses','Fentes','Soulevé de terre roumain','Leg curl','Mollets debout','Gainage','Crunch'];
 let user = null, isAdmin = false;
 
+const nm = u => u.displayName || (u.email || '').split('@')[0];
+function setWho() { $('#who').textContent = user ? nm(user).split(' ')[0] + (isAdmin ? ' (admin)' : '') : ''; }
 auth.onAuthStateChanged(u => {
+  // un compte e-mail/mot de passe non vérifié portant l'adresse admin est refusé
+  if (u && !u.emailVerified && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    auth.signOut(); alert('Cette adresse est réservée : connecte-toi avec le bouton Google.'); return;
+  }
   user = u; isAdmin = !!u && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
   $('#out').hidden = !u; watchMsgs();
-  if (u) db.collection('users').doc(u.uid).set({name: u.displayName || u.email, email: u.email, seen: Date.now()}, {merge: true}).catch(() => {});
-  $('#who').textContent = u ? (u.displayName || u.email).split(' ')[0] + (isAdmin ? ' (admin)' : '') : '';
+  if (u) db.collection('users').doc(u.uid).set({name: nm(u), email: u.email, seen: Date.now()}, {merge: true}).catch(() => {});
+  setWho();
   route();
 });
 $('#out').onclick = () => auth.signOut();
@@ -206,6 +216,60 @@ function watchMsgs() {
   }, () => {});
 }
 
+const AUTHMSG = {
+  'auth/invalid-email': 'Adresse e-mail invalide.',
+  'auth/missing-email': 'Saisis ton adresse e-mail.',
+  'auth/missing-password': 'Saisis ton mot de passe.',
+  'auth/invalid-credential': 'E-mail ou mot de passe incorrect.',
+  'auth/wrong-password': 'E-mail ou mot de passe incorrect.',
+  'auth/user-not-found': 'E-mail ou mot de passe incorrect.',
+  'auth/email-already-in-use': 'Un compte existe déjà avec cet e-mail. Connecte-toi, ou utilise « Mot de passe oublié ». Si tu t’es connecté avec Google, utilise le bouton Google.',
+  'auth/weak-password': 'Mot de passe trop court : 6 caractères minimum.',
+  'auth/too-many-requests': 'Trop d’essais. Attends quelques minutes puis réessaie.',
+  'auth/network-request-failed': 'Réseau indisponible. Réessaie.',
+  'auth/operation-not-allowed': 'La connexion par e-mail n’est pas activée dans Firebase (Authentication > Méthode de connexion > E-mail/Mot de passe).'
+};
+const authMsg = e => AUTHMSG[e && e.code] || (e && e.message) || 'Erreur de connexion.';
+function wireEmail() {
+  let up = false;
+  const say = (el, t) => { $('#emerr').hidden = true; $('#emok').hidden = true; if (el && t) { el.textContent = t; el.hidden = false; } };
+  const setMode = m => {
+    up = m === 'up';
+    $('#emname').hidden = !up; $('#emreset').hidden = up;
+    $('#emgo').textContent = up ? 'Créer mon compte' : 'Se connecter';
+    $('#emp').autocomplete = up ? 'new-password' : 'current-password';
+    document.querySelectorAll('#emmode a').forEach(a => a.classList.toggle('on', a.dataset.m === m));
+    say(null, '');
+  };
+  document.querySelectorAll('#emmode a').forEach(a => a.onclick = e => { e.preventDefault(); setMode(a.dataset.m); });
+  $('#emshow').onclick = () => { const p = $('#emp'), h = p.type === 'password'; p.type = h ? 'text' : 'password'; $('#emshow').textContent = h ? 'Cacher' : 'Voir'; };
+  $('#emreset').onclick = async () => {
+    const m = $('#emm').value.trim();
+    if (!m) return say($('#emerr'), 'Saisis ton e-mail ci-dessus, puis touche « Mot de passe oublié ».');
+    try { await auth.sendPasswordResetEmail(m); say($('#emok'), 'E-mail envoyé. Vérifie ta boîte de réception et les spams.'); }
+    catch (e) { say($('#emerr'), authMsg(e)); }
+  };
+  const submit = async () => {
+    const m = $('#emm').value.trim(), p = $('#emp').value, n = $('#emn').value.trim();
+    if (!m) return say($('#emerr'), AUTHMSG['auth/missing-email']);
+    if (!p) return say($('#emerr'), AUTHMSG['auth/missing-password']);
+    say(null, ''); $('#emgo').disabled = true;
+    try {
+      if (up) {
+        const c = await auth.createUserWithEmailAndPassword(m, p);
+        if (n) {
+          await c.user.updateProfile({displayName: n}); await c.user.reload();
+          user = auth.currentUser; setWho();
+          db.collection('users').doc(user.uid).set({name: nm(user), email: user.email, seen: Date.now()}, {merge: true}).catch(() => {});
+          route();
+        }
+      } else await auth.signInWithEmailAndPassword(m, p);
+    } catch (e) { say($('#emerr'), authMsg(e)); if ($('#emgo')) $('#emgo').disabled = false; }
+  };
+  $('#emgo').onclick = submit;
+  $('#emailbox').onkeydown = e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); submit(); } };
+}
+
 async function route() {
   if (pageUnsub) { pageUnsub(); pageUnsub = null; }
   nav(); app.classList.remove('wide');
@@ -218,11 +282,23 @@ async function route() {
       <p class="lead">Retrouve le programme du jour, coche chaque exercice fait, note tes charges et écris directement à ton partenaire d’entraînement.</p>
       <button id="g" class="gbtn"><svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg><span>Continuer avec Google</span></button>
       <p class="fine">Connexion sécurisée par Google, sans mot de passe à retenir.</p>
+      <div class="or"><span>ou avec ton e-mail</span></div>
+      <div class="card" id="emailbox">
+        <div class="seg" id="emmode" style="margin-top:0"><a href="#" data-m="in" class="on">Se connecter</a><a href="#" data-m="up">Créer un compte</a></div>
+        <div id="emname" hidden><label for="emn">Prénom</label><input id="emn" autocomplete="given-name" placeholder="Pour t’afficher aux autres"></div>
+        <label for="emm">E-mail</label><input id="emm" type="email" inputmode="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="toi@exemple.com">
+        <label for="emp">Mot de passe</label>
+        <div class="pw"><input id="emp" type="password" autocomplete="current-password" placeholder="6 caractères minimum"><button type="button" class="alt" id="emshow">Voir</button></div>
+        <p id="emerr" class="err" role="alert" hidden></p><p id="emok" class="tag" hidden></p>
+        <p style="margin:14px 0 0"><button id="emgo" style="width:100%">Se connecter</button></p>
+        <p style="margin:6px 0 0;text-align:center"><button class="link" id="emreset" type="button">Mot de passe oublié ?</button></p>
+      </div>
       <ul class="feat">
         <li><b>La séance du jour</b><span>Elle s’ouvre dès la connexion, avec les vidéos d’exécution.</span></li>
         <li><b>Un suivi honnête</b><span>Tu coches ce que tu as vraiment fait et la charge utilisée.</span></li>
         <li><b>Une messagerie intégrée</b><span>Une question sur un exercice ? Écris, la réponse arrive ici.</span></li>
       </ul></section>`;
+    wireEmail();
     $('#g').onclick = async () => {
       const btn = $('#g'), p = new firebase.auth.GoogleAuthProvider();
       btn.disabled = true; btn.querySelector('span').textContent = 'Connexion…';
@@ -310,7 +386,7 @@ async function viewSession(id, label) {
   };
   async function save(manual) {
     if ($('#note')) mine.note = $('#note').value;
-    await logRef.set({uid: user.uid, name: user.displayName || user.email, sessionId: id, done: mine.done, w: mine.w, note: mine.note, updatedAt: Date.now()});
+    await logRef.set({uid: user.uid, name: nm(user), sessionId: id, done: mine.done, w: mine.w, note: mine.note, updatedAt: Date.now()});
     if (manual) $('#ok').textContent = 'Enregistré'; else render();
   }
   render();
@@ -443,7 +519,7 @@ async function usersPage() {
 }
 
 async function messagesPage(uid) {
-  if (!isAdmin) return thread(user.uid, user.displayName || user.email);
+  if (!isAdmin) return thread(user.uid, nm(user));
   if (uid) return thread(uid);
   app.innerHTML = `<h1>Messages</h1><p><button id="newm" class="alt">+ Nouveau message</button></p><div id="usrs" hidden></div><div id="inbox"></div>`;
   const us = (await db.collection('users').get().catch(() => ({docs: []}))).docs.map(d => ({uid: d.id, ...d.data()})).filter(u => u.uid !== user.uid);
@@ -495,7 +571,7 @@ async function thread(uid, nameHint) {
   const send = async () => {
     const ta = $('#msg'), text = ta.value.trim(); if (!text) return;
     ta.value = ''; ta.style.height = 'auto';
-    try { await db.collection('messages').add({uid, name: name || (isAdmin ? 'Utilisateur' : user.displayName || user.email), from: mine, text, createdAt: Date.now(), readByAdmin: isAdmin, readByUser: !isAdmin}); }
+    try { await db.collection('messages').add({uid, name: name || (isAdmin ? 'Utilisateur' : nm(user)), from: mine, text, createdAt: Date.now(), readByAdmin: isAdmin, readByUser: !isAdmin}); }
     catch (e) { ta.value = text; alert(e.message); }
   };
   $('#send').onclick = send;
