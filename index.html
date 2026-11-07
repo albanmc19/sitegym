@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4bff">
 <title>Séances</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;500;600&display=swap">
 <style>
@@ -35,6 +36,28 @@ label{display:block;font-weight:600;margin:12px 0 4px}
 :focus-visible{outline:3px solid var(--acc);outline-offset:2px}
 #login{text-align:center;padding-top:15vh}
 .ex .w{margin-top:6px;padding:6px 9px;font-size:15px}button:disabled{opacity:.35;cursor:default}.row.nowrap{flex-wrap:nowrap}
+
+html{-webkit-text-size-adjust:100%}
+body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+nav{display:flex;gap:16px}
+.btn{text-align:center}
+.vid{display:inline-block;margin-top:6px;padding:8px 12px;border:1px solid var(--acc);border-radius:4px;color:var(--acc);font-weight:600;text-decoration:none}
+.stick{position:sticky;bottom:0;background:var(--bg);padding:10px 0 calc(10px + env(safe-area-inset-bottom));margin:0}
+@media(max-width:600px){
+ header{padding:10px 14px;gap:6px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
+ header b{font-size:22px}
+ nav{order:3;width:100%;overflow-x:auto;white-space:nowrap;padding-bottom:2px}
+ nav a{padding:10px 2px;display:inline-block}
+ main{padding:16px 14px calc(90px + env(safe-area-inset-bottom))}
+ button,.btn{min-height:48px;padding:12px 16px}
+ button.del{padding:12px 16px}
+ .link{padding:12px 8px}
+ .ex input[type=checkbox]{width:30px;height:30px}
+ .ex{gap:12px}
+ .card{padding:14px 12px}
+ .row>*{flex:1 1 45%}
+ .vid{padding:11px 14px}
+}
 </style>
 </head>
 <body>
@@ -64,9 +87,10 @@ const $ = s => document.querySelector(s), app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const fmt = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
-const blank = () => ({name: '', sets: '', reps: '', load: '', rest: '', notes: ''});
+const blank = () => ({name: '', sets: '', reps: '', load: '', rest: '', notes: '', video: ''});
+const okUrl = u => /^https?:\/\/\S+$/i.test(u || '');
 const detail = e => [e.sets && e.reps ? `${e.sets} × ${e.reps}` : (e.sets && e.sets + ' séries') || (e.reps && e.reps + ' reps'), e.load, e.rest && 'repos ' + e.rest, e.notes].filter(Boolean).join(' · ');
-const DEFAULTS = ['Développé couché','Développé incliné','Pompes','Dips','Tractions','Rowing barre','Tirage vertical','Développé militaire','Élévations latérales','Curl biceps','Extension triceps','Squat','Presse à cuisses','Fentes','Soulevé de terre roumain','Leg curl','Mollets debout','Gainage','Crunch'];
+const DEFAULTS = ['Développé couché prise contre pecs','Chest press (pecs)','Pec fly banc','Mollet extension','Genou extension','Développé couché','Développé incliné','Pompes','Dips','Tractions','Rowing barre','Tirage vertical','Développé militaire','Élévations latérales','Curl biceps','Extension triceps','Squat','Presse à cuisses','Fentes','Soulevé de terre roumain','Leg curl','Mollets debout','Gainage','Crunch'];
 let user = null, isAdmin = false;
 
 auth.onAuthStateChanged(u => {
@@ -148,7 +172,7 @@ async function viewSession(id, label) {
     app.innerHTML = `<p class="mute">${label || fmt(s.date)}</p><h1>${esc(s.title)}</h1>
     <p class="mute">${label ? fmt(s.date) + ' · ' : ''}${n}/${s.exercises.length} exercices faits</p>
     <div class="card">${s.exercises.map((e, i) => `<div class="ex ${mine.done[i] ? 'done' : ''}"><input type="checkbox" id="c${i}" data-i="${i}" ${mine.done[i] ? 'checked' : ''}>
-      <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div>
+      <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div>${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Voir la vidéo</a>` : ''}
       <input class="w" data-w="${i}" value="${esc(mine.w[i])}" placeholder="Charge réellement utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"></div></div>`).join('')}</div>
     <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
     <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
@@ -186,8 +210,9 @@ async function editSession(id) {
       <input data-i="${i}" data-k="name" list="exlist" value="${esc(e.name)}" placeholder="Nom de l'exercice" aria-label="Nom de l'exercice ${i + 1}">
       <div class="row" style="margin-top:8px">${field(i, 'sets', 'Séries', e.sets)}${field(i, 'reps', 'Reps', e.reps)}${field(i, 'load', 'Charge', e.load)}${field(i, 'rest', 'Repos', e.rest)}</div>
       <div style="margin-top:8px">${field(i, 'notes', 'Consigne (tempo, technique…)', e.notes)}</div>
+      <div style="margin-top:8px"><input type="url" inputmode="url" autocapitalize="off" data-i="${i}" data-k="video" value="${esc(e.video)}" placeholder="Lien vidéo YouTube (optionnel)" aria-label="Lien vidéo YouTube"></div>
       <p class="row" style="margin:10px 0 0;flex:none"><button class="link" data-up="${i}" ${i ? '' : 'disabled'}>Monter</button><button class="link" data-down="${i}" ${i < s.exercises.length - 1 ? '' : 'disabled'}>Descendre</button><button class="link" data-cp="${i}">Dupliquer</button><button class="link" data-rm="${i}">Retirer</button></p></div>`).join('')}
-    <p class="row"><button class="alt" id="add">+ Ajouter un exercice</button><button id="sv">Enregistrer la séance</button></p>`;
+    <p class="row stick"><button class="alt" id="add">+ Ajouter un exercice</button><button id="sv">Enregistrer la séance</button></p>`;
     const read = () => { s.title = $('#t').value; s.date = $('#d').value; app.querySelectorAll('[data-k]').forEach(i => s.exercises[i.dataset.i][i.dataset.k] = i.value); };
     const on = (sel, f) => app.querySelectorAll(sel).forEach(b => b.onclick = () => { read(); f(+Object.values(b.dataset)[0]); draw(); });
     $('#add').onclick = () => { read(); s.exercises.push(blank()); draw(); };
@@ -196,7 +221,8 @@ async function editSession(id) {
     on('[data-up]', i => { if (i) [s.exercises[i - 1], s.exercises[i]] = [s.exercises[i], s.exercises[i - 1]]; });
     on('[data-down]', i => { if (i < s.exercises.length - 1) [s.exercises[i + 1], s.exercises[i]] = [s.exercises[i], s.exercises[i + 1]]; });
     $('#sv').onclick = async () => {
-      read(); const ex = s.exercises.filter(e => e.name.trim());
+      read(); const ex = s.exercises.filter(e => e.name.trim()).map(e => ({...e, name: e.name.trim(), video: (e.video || '').trim()}));
+      const bad = ex.find(e => e.video && !okUrl(e.video)); if (bad) return alert('Lien vidéo invalide pour « ' + bad.name + ' » : il doit commencer par https://');
       if (!s.title.trim() || !ex.length || !s.date) return alert('Il faut un titre, une date et au moins un exercice.');
       const ref = id ? db.collection('sessions').doc(id) : db.collection('sessions').doc();
       await ref.set({title: s.title.trim(), date: s.date, exercises: ex});
