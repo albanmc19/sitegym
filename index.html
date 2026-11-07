@@ -95,6 +95,10 @@ body.out header{display:none}
 .feat li{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:14px 16px}
 .feat b{display:block;font:800 21px 'Barlow Condensed',sans-serif;letter-spacing:.02em}
 .feat span{color:var(--mute)}
+.btn.alt{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+.usr{display:flex;gap:12px;align-items:center}
+.av{width:46px;height:46px;border-radius:50%;background:var(--acc);color:var(--acc-ink);display:grid;place-items:center;font:800 22px 'Barlow Condensed',sans-serif;flex:none}
+.usr .btn{min-height:44px;padding:8px 14px;flex:none}
 </style>
 </head>
 <body>
@@ -144,7 +148,8 @@ const ICO = {
   home: '<path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
-  pen: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'
+  pen: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>'
 };
 const icon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[n]}</svg>`;
 let unread = 0, unsub = null, pageUnsub = null;
@@ -152,7 +157,7 @@ function nav() {
   document.title = (unread ? `(${unread}) ` : '') + 'Séances';
   const h = location.hash || '#/';
   const l = [['#/', 'home', "Aujourd'hui"], ['#/seances', 'list', 'Séances'], ['#/messages', 'chat', 'Messages']];
-  if (isAdmin) l.push(['#/admin', 'pen', 'Gérer']);
+  if (isAdmin) l.push(['#/inscrits', 'users', 'Inscrits'], ['#/admin', 'pen', 'Gérer']);
   $('#nav').innerHTML = user ? l.map(([a, i, t]) => `<a href="${a}" class="${(a === '#/' ? h === '#/' : h.startsWith(a)) ? 'on' : ''}">${icon(i)}<span>${t}</span>${a === '#/messages' && unread ? `<span class="bd">${unread}</span>` : ''}</a>`).join('') : '';
 }
 function watchMsgs() {
@@ -197,6 +202,7 @@ async function route() {
   const [, page, id] = (location.hash || '#/').split('/');
   try {
     if (page === 'seance') return await viewSession(id);
+    if (page === 'inscrits' && isAdmin) return await usersPage();
     if (page === 'messages') return await messagesPage(id);
     if (page === 'seances') return await listSessions();
     if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id) : await adminList();
@@ -281,6 +287,32 @@ const dayKey = t => new Date(t - new Date(t).getTimezoneOffset() * 6e4).toISOStr
 const dayLabel = t => { const k = dayKey(t), n = Date.now(); return k === dayKey(n) ? "Aujourd'hui" : k === dayKey(n - 864e5) ? 'Hier' : fmt(k); };
 const whenShort = t => dayKey(t) === dayKey(Date.now()) ? when(t) : new Date(t).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'});
 const linkify = t => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">$1</a>');
+
+async function usersPage() {
+  const [us, lg] = await Promise.all([db.collection('users').get(), db.collection('logs').get()]);
+  const stats = {};
+  lg.docs.forEach(d => {
+    const l = d.data(), c = stats[l.uid] || (stats[l.uid] = {seances: 0, ex: 0});
+    const n = Object.values(l.done || {}).filter(Boolean).length;
+    if (n) { c.seances++; c.ex += n; }
+  });
+  const list = us.docs.map(d => ({uid: d.id, ...d.data()})).sort((a, b) => (b.seen || 0) - (a.seen || 0));
+  app.innerHTML = `<h1>Inscrits</h1><p class="mute">${list.length} compte${list.length > 1 ? 's' : ''} connecté${list.length > 1 ? 's' : ''} au moins une fois</p>
+    <input id="q" type="search" placeholder="Rechercher un nom ou un e-mail" aria-label="Rechercher"><div id="ul" style="margin-top:8px"></div>`;
+  const draw = () => {
+    const q = $('#q').value.trim().toLowerCase();
+    const f = list.filter(u => ((u.name || '') + ' ' + (u.email || '')).toLowerCase().includes(q));
+    $('#ul').innerHTML = f.length ? f.map(u => {
+      const st = stats[u.uid] || {seances: 0, ex: 0}, adm = (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      return `<div class="card usr"><div class="av">${esc((u.name || '?').trim()[0] || '?').toUpperCase()}</div>
+        <div style="flex:1;min-width:0"><b>${esc(u.name)}</b>${adm ? ' <span class="tag">Admin</span>' : ''}${u.uid === user.uid ? ' <span class="mute">(toi)</span>' : ''}<br>
+        <span class="mute" style="overflow-wrap:anywhere">${esc(u.email)}</span><br>
+        <span class="mute">Vu ${u.seen ? dayLabel(u.seen).toLowerCase() + ' à ' + when(u.seen) : 'jamais'} · ${st.seances} séance${st.seances > 1 ? 's' : ''} suivie${st.seances > 1 ? 's' : ''} · ${st.ex} exercice${st.ex > 1 ? 's' : ''}</span></div>
+        ${u.uid !== user.uid ? `<a class="btn alt" href="#/messages/${esc(u.uid)}">Message</a>` : ''}</div>`;
+    }).join('') : '<p class="mute">Aucun résultat.</p>';
+  };
+  $('#q').oninput = draw; draw();
+}
 
 async function messagesPage(uid) {
   if (!isAdmin) return thread(user.uid, user.displayName || user.email);
