@@ -136,7 +136,7 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(-
 </head>
 <body>
 <header><b>SÉANCES</b><nav id="nav"></nav><span id="who" class="mute"></span><button class="alt" id="out" hidden>Quitter</button></header>
-<main id="app"></main>
+<main id="app"><p class="mute" style="padding-top:20vh;text-align:center">Chargement…</p></main>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -158,11 +158,18 @@ const ADMIN_EMAIL = "albanmc573@gmail.com"; // ton compte Google = admin
 const GOOGLE_CLIENT_ID = "548938318019-p57tpgdvkhfag4nsnin20q70uqios83g.apps.googleusercontent.com";
 // =======================
 
+if (typeof firebase === 'undefined') {
+  document.getElementById('app').innerHTML = '<div class="card"><b>Impossible de charger Firebase.</b><br><span class="mute">Vérifie ta connexion, désactive le bloqueur de contenu pour ce site, puis recharge la page.</span></div>';
+  throw new Error('Firebase non chargé');
+}
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
 
 // Navigateurs intégrés (Snapchat, Instagram, Facebook…) : la connexion Google y échoue
 const inApp = /Snapchat|Instagram|FBAN|FBAV|FB_IAB|Messenger|TikTok|musical_ly|BytedanceWebview|MicroMessenger|Line\/|Twitter|LinkedInApp|Pinterest|GSA\/[\d.]+/i.test(navigator.userAgent);
+// iPhone / iPad (y compris iPadOS qui se présente comme un Mac) : tous les navigateurs y utilisent WebKit,
+// où la popup/redirection Firebase échoue si le site n'est pas sur le domaine authDomain (ex. GitHub Pages).
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const copyLink = async () => {
   const u = location.href.split('#')[0];
   try { await navigator.clipboard.writeText(u); alert('Lien copié. Ouvre Safari et colle-le dans la barre d’adresse.'); }
@@ -188,6 +195,8 @@ auth.onAuthStateChanged(u => {
 });
 $('#out').onclick = () => auth.signOut();
 addEventListener('hashchange', route);
+// Filet de sécurité : si Firebase ne répond pas (Safari/iOS), on affiche quand même l'écran de connexion
+setTimeout(() => { if (!user && /Chargement/.test(app.textContent)) route(); }, 4000);
 
 const ICO = {
   home: '<path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
@@ -236,7 +245,7 @@ async function route() {
         <li><b>Une messagerie intégrée</b><span>Une question sur un exercice ? Écris, la réponse arrive ici.</span></li>
       </ul></section>`;
     if ($('#cpl')) $('#cpl').onclick = copyLink;
-    if (GOOGLE_CLIENT_ID && !inApp) {
+    if (GOOGLE_CLIENT_ID && isIOS && !inApp) {
       const start = () => {
         google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID, ux_mode: 'popup', use_fedcm_for_button: true,
@@ -252,13 +261,4 @@ async function route() {
     if ($('#cpl')) $('#cpl').onclick = copyLink;
     $('#g').onclick = async () => {
       const btn = $('#g'), p = new firebase.auth.GoogleAuthProvider();
-      btn.disabled = true; btn.querySelector('span').textContent = 'Connexion…';
-      try { await auth.signInWithPopup(p); }
-      catch (e) {
-        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) {
-          if (inApp) { alert('Connexion impossible dans ce navigateur intégré. Copie le lien et ouvre-le dans Safari.'); btn.disabled = false; btn.querySelector('span').textContent = 'Continuer avec Google'; return; }
-          if (/iP(hone|ad|od)/.test(navigator.userAgent)) { alert('Connexion Google bloquée par le navigateur. Autorise les pop-ups pour ce site (Réglages → Safari) ou ouvre le lien dans Safari.'); btn.disabled = false; btn.querySelector('span').textContent = 'Continuer avec Google'; return; }
-          return auth.signInWithRedirect(p);
-        }
-        if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(e.code)) alert(e.message);
-        btn.disable
+      btn.d
