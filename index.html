@@ -99,6 +99,39 @@ body.out header{display:none}
 .usr{display:flex;gap:12px;align-items:center}
 .av{width:46px;height:46px;border-radius:50%;background:var(--acc);color:var(--acc-ink);display:grid;place-items:center;font:800 22px 'Barlow Condensed',sans-serif;flex:none}
 .usr .btn{min-height:44px;padding:8px 14px;flex:none}
+#app.wide{max-width:980px}
+select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:9px;width:100%}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;margin:6px 0 14px}
+.seg a{flex:1;text-align:center;padding:10px;border-radius:9px;text-decoration:none;color:var(--mute);font-weight:600}
+.seg a.on{background:var(--acc);color:var(--acc-ink)}
+.chead{display:flex;align-items:center;gap:8px;margin:8px 0}
+.chead h2{margin:0;flex:1;text-transform:capitalize}
+.chead button{min-height:44px;min-width:44px;padding:8px 12px}
+.cgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cw{font-size:12px;font-weight:600;color:var(--mute);text-align:center;text-transform:uppercase;padding:4px 0}
+.cd{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;min-height:60px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;font:inherit;cursor:pointer}
+.cd.other{opacity:.4}
+.cd.sel{outline:2px solid var(--acc);outline-offset:-2px}
+.cd.today .n{background:var(--acc);color:var(--acc-ink)}
+.n{font-weight:600;width:28px;height:28px;display:grid;place-items:center;border-radius:50%}
+.dots{display:flex;gap:3px;justify-content:center;min-height:8px}
+.d{width:8px;height:8px;border-radius:50%;background:var(--acc);display:inline-block}
+.d.done{background:var(--ok)}.d.part{background:#e8a317}.d.miss{background:var(--mute);opacity:.6}
+.ct{display:none}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin:12px 0}
+.leg .d{margin-right:5px;vertical-align:middle}
+.st-done{color:var(--ok)}.st-part{color:#c27c0e}.st-miss{color:var(--mute)}.st-plan{color:var(--acc)}
+@media(min-width:700px){
+ .cd{min-height:104px;align-items:stretch;padding:6px}
+ .n{align-self:flex-start}.dots{display:none}
+ .ct{display:block;font-size:12px;text-align:left;border-left:3px solid var(--acc);padding:2px 6px;background:var(--bg);border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .ct.done{border-color:var(--ok)}.ct.part{border-color:#e8a317}.ct.miss{border-color:var(--mute)}
+}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:end center;z-index:50}
+.sheet{background:var(--card);width:min(520px,100%);border-radius:18px 18px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+@media(min-width:601px){.modal{place-items:center}.sheet{border-radius:18px}}
+.chip{display:inline-flex;gap:6px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:6px 8px 6px 14px;margin:8px 8px 0 0}
+.chip .x{padding:6px;text-decoration:none}
 </style>
 </head>
 <body>
@@ -149,6 +182,7 @@ const ICO = {
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
   pen: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   users: '<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>'
 };
 const icon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[n]}</svg>`;
@@ -156,9 +190,9 @@ let unread = 0, unsub = null, pageUnsub = null;
 function nav() {
   document.title = (unread ? `(${unread}) ` : '') + 'Séances';
   const h = location.hash || '#/';
-  const l = [['#/', 'home', "Aujourd'hui"], ['#/seances', 'list', 'Séances'], ['#/messages', 'chat', 'Messages']];
-  if (isAdmin) l.push(['#/inscrits', 'users', 'Inscrits'], ['#/admin', 'pen', 'Gérer']);
-  $('#nav').innerHTML = user ? l.map(([a, i, t]) => `<a href="${a}" class="${(a === '#/' ? h === '#/' : h.startsWith(a)) ? 'on' : ''}">${icon(i)}<span>${t}</span>${a === '#/messages' && unread ? `<span class="bd">${unread}</span>` : ''}</a>`).join('') : '';
+  const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
+  if (isAdmin) l.push(['#/admin', 'pen', 'Gérer', ['#/admin', '#/inscrits']]);
+  $('#nav').innerHTML = user ? l.map(([a, i, t, m]) => `<a href="${a}" class="${(a === '#/' ? h === '#/' : m.some(p => h.startsWith(p))) ? 'on' : ''}">${icon(i)}<span>${t}</span>${a === '#/messages' && unread ? `<span class="bd">${unread}</span>` : ''}</a>`).join('') : '';
 }
 function watchMsgs() {
   if (unsub) unsub(); unsub = null; unread = 0;
@@ -172,7 +206,7 @@ function watchMsgs() {
 
 async function route() {
   if (pageUnsub) { pageUnsub(); pageUnsub = null; }
-  nav();
+  nav(); app.classList.remove('wide');
   document.body.classList.toggle('out', !user);
   if (!user) {
     app.innerHTML = `<section class="hero">
@@ -199,13 +233,14 @@ async function route() {
     };
     return;
   }
-  const [, page, id] = (location.hash || '#/').split('/');
+  const [, page, id, extra] = (location.hash || '#/').split('/');
   try {
     if (page === 'seance') return await viewSession(id);
+    if (page === 'calendrier') return await calendarPage();
     if (page === 'inscrits' && isAdmin) return await usersPage();
     if (page === 'messages') return await messagesPage(id);
     if (page === 'seances') return await listSessions();
-    if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id) : await adminList();
+    if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id, extra) : await adminList();
     return await home();
   } catch (e) { app.innerHTML = `<div class="card">Erreur : ${esc(e.message)}</div>`; }
 }
@@ -224,23 +259,19 @@ async function home() {
 
 async function listSessions() {
   const list = await all();
-  app.innerHTML = `<h1>Séances</h1>` + (list.length ? list.map(s =>
+  app.innerHTML = `<h1>Séances</h1>${seg('list')}` + (list.length ? list.map(s =>
     `<a class="card item" href="#/seance/${s.id}"><span><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span></span></a>`).join('')
     : `<p class="mute">Aucune séance.</p>`);
 }
 
 async function adminList() {
   const list = await all();
-  app.innerHTML = `<h1>Gérer les séances</h1><p><a class="btn" href="#/admin/new">+ Nouvelle séance</a></p>` + (list.length ? list.map(s =>
+  app.innerHTML = `<h1>Gérer les séances</h1><p class="row"><a class="btn" href="#/admin/new">+ Nouvelle séance</a><a class="btn alt" href="#/inscrits">Inscrits</a></p>` + (list.length ? list.map(s =>
     `<div class="card"><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span>
-    <p class="row" style="margin:10px 0 0;flex-wrap:wrap"><a class="btn alt" href="#/seance/${s.id}">Voir le suivi</a><a class="btn alt" href="#/admin/${s.id}">Modifier</a><button class="alt" data-dup="${s.id}">Dupliquer</button><button class="del" data-del="${s.id}">Supprimer</button></p></div>`).join('')
+    <p class="row" style="margin:10px 0 0;flex-wrap:wrap"><a class="btn alt" href="#/seance/${s.id}">Voir le suivi</a><a class="btn alt" href="#/admin/${s.id}">Modifier</a><button class="alt" data-dup="${s.id}">Copier…</button><button class="del" data-del="${s.id}">Supprimer</button></p></div>`).join('')
     : `<p class="mute">Aucune séance créée.</p>`);
   const by = id => list.find(s => s.id === id);
-  app.querySelectorAll('[data-dup]').forEach(b => b.onclick = async () => {
-    const s = by(b.dataset.dup), ref = db.collection('sessions').doc();
-    await ref.set({title: s.title + ' (copie)', date: today(), exercises: s.exercises});
-    location.hash = '#/admin/' + ref.id;
-  });
+  app.querySelectorAll('[data-dup]').forEach(b => b.onclick = () => copyModal(by(b.dataset.dup)));
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (confirm('Supprimer cette séance ?')) { await db.collection('sessions').doc(b.dataset.del).delete(); adminList(); }
   });
@@ -263,10 +294,11 @@ async function viewSession(id, label) {
       <input class="w" data-w="${i}" value="${esc(mine.w[i])}" placeholder="Charge réellement utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"></div></div>`).join('')}</div>
     <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
     <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
-    ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/admin/${id}">Modifier la séance</a></p>` : ''}`;
+    ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/admin/${id}">Modifier la séance</a><button class="alt" id="cpy">Copier…</button></p>` : ''}`;
     app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; save(false); });
     app.querySelectorAll('[data-w]').forEach(i => i.oninput = () => { mine.w[i.dataset.w] = i.value; });
     $('#save').onclick = () => save(true);
+    if (isAdmin) $('#cpy').onclick = () => copyModal(s);
     if (isAdmin) db.collection('logs').where('sessionId', '==', id).get().then(q => {
       $('#track').innerHTML = q.empty ? 'Personne n’a encore validé d’exercice.' : q.docs.map(d => {
         const l = d.data(), ok = s.exercises.map((e, i) => [e, i]).filter(([, i]) => l.done && l.done[i]);
@@ -287,6 +319,100 @@ const dayKey = t => new Date(t - new Date(t).getTimezoneOffset() * 6e4).toISOStr
 const dayLabel = t => { const k = dayKey(t), n = Date.now(); return k === dayKey(n) ? "Aujourd'hui" : k === dayKey(n - 864e5) ? 'Hier' : fmt(k); };
 const whenShort = t => dayKey(t) === dayKey(Date.now()) ? when(t) : new Date(t).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'});
 const linkify = t => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">$1</a>');
+
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const ST = {done: 'Terminée', part: 'En cours', miss: 'Manquée', plan: 'Prévue'};
+const seg = cur => `<div class="seg"><a href="#/calendrier" class="${cur === 'cal' ? 'on' : ''}">Calendrier</a><a href="#/seances" class="${cur === 'list' ? 'on' : ''}">Liste</a></div>`;
+const clone = x => JSON.parse(JSON.stringify(x));
+
+function copyModal(src) {
+  const dates = [], el = document.createElement('div');
+  el.className = 'modal';
+  el.innerHTML = `<div class="sheet" role="dialog" aria-label="Copier la séance"><h2 style="margin-top:0">Copier « ${esc(src.title)} »</h2>
+    <p class="mute">Choisis une ou plusieurs dates. Chaque date reçoit une copie complète : exercices, charges, consignes et vidéos.</p>
+    <div class="row" style="flex-wrap:nowrap"><input type="date" id="cd" value="${today()}" aria-label="Date de la copie"><button class="alt" id="ca" style="flex:none">Ajouter</button></div>
+    <div id="cc"></div>
+    <p class="row" style="margin-top:18px"><button class="alt" id="cnl">Annuler</button><button id="cok">Copier</button></p></div>`;
+  document.body.appendChild(el);
+  const q = s => el.querySelector(s), close = () => el.remove();
+  const chips = () => {
+    q('#cc').innerHTML = dates.map((d, i) => `<span class="chip">${esc(fmt(d))}<button class="x" data-r="${i}" aria-label="Retirer cette date">✕</button></span>`).join('');
+    el.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { dates.splice(+b.dataset.r, 1); chips(); });
+  };
+  q('#ca').onclick = () => { const v = q('#cd').value; if (v && !dates.includes(v)) { dates.push(v); dates.sort(); chips(); } };
+  q('#cnl').onclick = close;
+  el.onclick = e => { if (e.target === el) close(); };
+  q('#cok').onclick = async () => {
+    const v = q('#cd').value, list = dates.length ? dates : (v ? [v] : []);
+    if (!list.length) return;
+    const b = db.batch(), ids = [];
+    list.forEach(d => { const r = db.collection('sessions').doc(); ids.push(r.id); b.set(r, {title: src.title, date: d, exercises: clone(src.exercises)}); });
+    try { await b.commit(); } catch (e) { return alert(e.message); }
+    close();
+    if (ids.length === 1) location.hash = '#/admin/' + ids[0];
+    else if ((location.hash || '') === '#/calendrier') calendarPage(); else location.hash = '#/calendrier';
+  };
+}
+
+let cal = null;
+async function calendarPage() {
+  app.classList.add('wide');
+  const t0 = new Date();
+  if (!cal) cal = {y: t0.getFullYear(), m: t0.getMonth(), sel: today()};
+  const sessions = await all(), byDay = {}, cache = {};
+  sessions.forEach(s => (byDay[s.date] = byDay[s.date] || []).push(s));
+  const status = s => { const n = cache[s.id] || 0, tot = s.exercises.length; return tot && n >= tot ? 'done' : n ? 'part' : s.date < today() ? 'miss' : 'plan'; };
+  const loadLogs = async () => {
+    const pre = `${cal.y}-${pad(cal.m + 1)}`;
+    await Promise.all(sessions.filter(s => s.date.startsWith(pre) && !(s.id in cache)).map(async s => {
+      try { const d = await db.collection('logs').doc(s.id + '_' + user.uid).get(); cache[s.id] = d.exists ? Object.values(d.data().done || {}).filter(Boolean).length : 0; }
+      catch (e) { cache[s.id] = 0; }
+    }));
+  };
+  const go = async dm => {
+    cal.m += dm; if (cal.m < 0) { cal.m = 11; cal.y--; } if (cal.m > 11) { cal.m = 0; cal.y++; }
+    const pre = `${cal.y}-${pad(cal.m + 1)}`; cal.sel = today().startsWith(pre) ? today() : pre + '-01';
+    await loadLogs(); draw();
+  };
+  const draw = () => {
+    if (!$('#app') || !app.classList.contains('wide')) return;
+    const first = new Date(cal.y, cal.m, 1), off = (first.getDay() + 6) % 7, dim = new Date(cal.y, cal.m + 1, 0).getDate();
+    const cells = Math.ceil((off + dim) / 7) * 7, pre = `${cal.y}-${pad(cal.m + 1)}`;
+    const ms = sessions.filter(s => s.date.startsWith(pre)), done = ms.filter(s => status(s) === 'done').length;
+    let grid = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(w => `<div class="cw">${w}</div>`).join('');
+    for (let i = 0; i < cells; i++) {
+      const d = new Date(cal.y, cal.m, 1 - off + i), k = iso(d), list = byDay[k] || [];
+      grid += `<button class="cd ${d.getMonth() !== cal.m ? 'other' : ''} ${k === today() ? 'today' : ''} ${k === cal.sel ? 'sel' : ''}" data-d="${k}" aria-label="${esc(fmt(k))}${list.length ? ', ' + list.length + ' séance' + (list.length > 1 ? 's' : '') : ''}"><span class="n">${d.getDate()}</span>
+        <span class="dots">${list.slice(0, 3).map(s => `<i class="d ${status(s)}"></i>`).join('')}</span>
+        ${list.slice(0, 2).map(s => `<span class="ct ${status(s)}">${esc(s.title)}</span>`).join('')}${list.length > 2 ? `<span class="ct">+${list.length - 2}</span>` : ''}</button>`;
+    }
+    const sel = byDay[cal.sel] || [], label = dayLabel(new Date(cal.sel + 'T12:00').getTime());
+    app.innerHTML = `<h1>Calendrier</h1>${seg('cal')}
+      <div class="chead"><h2>${first.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'})}</h2><button class="alt" id="cprev" aria-label="Mois précédent">‹</button><button class="alt" id="ctoday">Aujourd’hui</button><button class="alt" id="cnext" aria-label="Mois suivant">›</button></div>
+      <p class="mute" style="margin:0 0 8px">${ms.length} séance${ms.length > 1 ? 's' : ''} ce mois · ${done} terminée${done > 1 ? 's' : ''}</p>
+      <div class="cgrid" id="cg">${grid}</div>
+      <div class="leg"><span><i class="d"></i>Prévue</span><span><i class="d done"></i>Terminée</span><span><i class="d part"></i>En cours</span><span><i class="d miss"></i>Manquée</span></div>
+      <h2 id="dayp" style="text-transform:capitalize">${esc(label)}</h2>
+      ${sel.length ? sel.map(s => { const st = status(s); return `<a class="card item" href="#/seance/${s.id}"><span><b>${esc(s.title)}</b><br><span class="mute">${s.exercises.length} exercices${cache[s.id] ? ' · ' + cache[s.id] + ' faits' : ''}</span></span><b class="st-${st}">${ST[st]}</b></a>`; }).join('') : '<p class="mute">Rien de prévu ce jour.</p>'}
+      ${isAdmin ? `<div class="card"><b>Ajouter à ce jour</b><p style="margin:10px 0 0"><a class="btn" href="#/admin/new/${cal.sel}">+ Nouvelle séance</a></p>${sessions.length ? `<label for="cps">Copier une séance existante ici</label><select id="cps">${sessions.map(s => `<option value="${s.id}">${esc(s.title)} — ${esc(fmt(s.date))}</option>`).join('')}</select><p style="margin:10px 0 0"><button class="alt" id="cph">Copier ici</button></p>` : ''}</div>` : ''}`;
+    app.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
+      cal.sel = b.dataset.d; const d = new Date(cal.sel + 'T12:00');
+      if (d.getMonth() !== cal.m) { cal.m = d.getMonth(); cal.y = d.getFullYear(); await loadLogs(); }
+      draw(); const p = $('#dayp'); if (p) p.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    });
+    $('#cprev').onclick = () => go(-1); $('#cnext').onclick = () => go(1);
+    $('#ctoday').onclick = async () => { const n = new Date(); cal.y = n.getFullYear(); cal.m = n.getMonth(); cal.sel = today(); await loadLogs(); draw(); };
+    if ($('#cph')) $('#cph').onclick = async () => {
+      const s = sessions.find(x => x.id === $('#cps').value);
+      try { await db.collection('sessions').add({title: s.title, date: cal.sel, exercises: clone(s.exercises)}); calendarPage(); } catch (e) { alert(e.message); }
+    };
+    let x0 = null; const g = $('#cg');
+    g.ontouchstart = e => { x0 = e.touches[0].clientX; };
+    g.ontouchend = e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 70) go(dx < 0 ? 1 : -1); };
+  };
+  await loadLogs(); draw();
+}
 
 async function usersPage() {
   const [us, lg] = await Promise.all([db.collection('users').get(), db.collection('logs').get()]);
@@ -380,8 +506,8 @@ async function thread(uid, nameHint) {
   };
 }
 
-async function editSession(id) {
-  let s = {title: '', date: today(), exercises: [blank()]};
+async function editSession(id, preset) {
+  let s = {title: '', date: /^\d{4}-\d{2}-\d{2}$/.test(preset || '') ? preset : today(), exercises: [blank()]};
   if (id) { const d = await db.collection('sessions').doc(id).get(); if (d.exists) s = d.data(); }
   const known = new Set(DEFAULTS);
   (await all()).forEach(x => x.exercises.forEach(e => known.add(e.name)));
