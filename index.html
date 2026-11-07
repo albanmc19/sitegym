@@ -61,7 +61,7 @@ nav{display:flex;gap:16px}
 </style>
 </head>
 <body>
-<header><b>SÉANCES</b><nav id="nav"></nav><span id="who" class="mute"></span><button class="alt" id="mode" hidden></button><button class="alt" id="out" hidden>Quitter</button></header>
+<header><b>SÉANCES</b><nav id="nav"></nav><span id="who" class="mute"></span><button class="alt" id="out" hidden>Quitter</button></header>
 <main id="app"></main>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -93,25 +93,12 @@ const detail = e => [e.sets && e.reps ? `${e.sets} × ${e.reps}` : (e.sets && e.
 const DEFAULTS = ['Développé couché prise contre pecs','Chest press (pecs)','Pec fly banc','Mollet extension','Genou extension','Développé couché','Développé incliné','Pompes','Dips','Tractions','Rowing barre','Tirage vertical','Développé militaire','Élévations latérales','Curl biceps','Extension triceps','Squat','Presse à cuisses','Fentes','Soulevé de terre roumain','Leg curl','Mollets debout','Gainage','Crunch'];
 let user = null, isAdmin = false;
 
-let realAdmin = false, normalMode = false;
-try { normalMode = localStorage.getItem('normalMode') === '1'; } catch (e) {}
-function applyRole() {
-  isAdmin = realAdmin && !normalMode;
-  $('#mode').hidden = !realAdmin;
-  $('#mode').textContent = normalMode ? 'Revenir en admin' : 'Voir comme un utilisateur';
-  $('#who').textContent = user ? (user.displayName || user.email).split(' ')[0] + (realAdmin ? (normalMode ? ' (mode normal)' : ' (admin)') : '') : '';
-}
 auth.onAuthStateChanged(u => {
-  user = u; realAdmin = !!u && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  $('#out').hidden = !u; applyRole(); route();
-});
-$('#mode').onclick = () => {
-  normalMode = !normalMode;
-  try { localStorage.setItem('normalMode', normalMode ? '1' : '0'); } catch (e) {}
-  applyRole();
-  if (normalMode && (location.hash || '').startsWith('#/admin')) location.hash = '#/';
+  user = u; isAdmin = !!u && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  $('#out').hidden = !u;
+  $('#who').textContent = u ? (u.displayName || u.email).split(' ')[0] + (isAdmin ? ' (admin)' : '') : '';
   route();
-};
+});
 $('#out').onclick = () => auth.signOut();
 addEventListener('hashchange', route);
 
