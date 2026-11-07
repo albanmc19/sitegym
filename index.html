@@ -170,7 +170,7 @@ const DEFAULTS = ['Développé couché prise contre pecs','Chest press (pecs)','
 let user = null, isAdmin = false;
 
 auth.onAuthStateChanged(u => {
-  user = u; isAdmin = !!u && u.emailVerified && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  user = u; isAdmin = !!u && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
   $('#out').hidden = !u; watchMsgs();
   if (u) db.collection('users').doc(u.uid).set({name: u.displayName || u.email, email: u.email, seen: Date.now()}, {merge: true}).catch(() => {});
   $('#who').textContent = u ? (u.displayName || u.email).split(' ')[0] + (isAdmin ? ' (admin)' : '') : '';
@@ -275,4 +275,6 @@ async function adminList() {
   const by = id => list.find(s => s.id === id);
   app.querySelectorAll('[data-dup]').forEach(b => b.onclick = () => copyModal(by(b.dataset.dup)));
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (confirm('Supprimer cette séance ?')) { await db.collection('sessions').doc(b.dataset.del).delete(); adm
+    if (confirm('Supprimer cette séance ?')) { await db.collection('sessions').doc(b.dataset.del).delete(); adminList(); }
+  });
+}
