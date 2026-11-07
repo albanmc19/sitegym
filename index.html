@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com; frame-src https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<script>if(self!==top){document.documentElement.style.display='none';try{top.location=self.location}catch(e){}}</script>
 <meta name="theme-color" content="#1f4bff">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -188,27 +191,32 @@ const ADMIN_EMAIL = "albanmc573@gmail.com"; // ton compte Google = admin
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
 const $ = s => document.querySelector(s), app = $('#app');
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const VID = /^(www\.|m\.)?(youtube\.com|youtube-nocookie\.com|youtu\.be|vimeo\.com)$/i;
+const okUrl = u => { try { const x = new URL(u); return x.protocol === 'https:' && VID.test(x.hostname) && !x.username && !x.password; } catch (e) { return false; } };
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const fmt = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
 const blank = () => ({name: '', sets: '', reps: '', load: '', rest: '', notes: '', video: ''});
-const okUrl = u => /^https?:\/\/\S+$/i.test(u || '');
 const detail = e => [e.sets && e.reps ? `${e.sets} × ${e.reps}` : (e.sets && e.sets + ' séries') || (e.reps && e.reps + ' reps'), e.load, e.rest && 'repos ' + e.rest, e.notes].filter(Boolean).join(' · ');
 const DEFAULTS = ['Développé couché prise contre pecs','Chest press (pecs)','Pec fly banc','Mollet extension','Genou extension','Développé couché','Développé incliné','Pompes','Dips','Tractions','Rowing barre','Tirage vertical','Développé militaire','Élévations latérales','Curl biceps','Extension triceps','Squat','Presse à cuisses','Fentes','Soulevé de terre roumain','Leg curl','Mollets debout','Gainage','Crunch'];
-let user = null, isAdmin = false;
+let user = null, isAdmin = false, pending = null, flash = '';
 
 const nm = u => u.displayName || (u.email || '').split('@')[0];
 function setWho() { $('#who').textContent = user ? nm(user).split(' ')[0] + (isAdmin ? ' (admin)' : '') : ''; }
-auth.onAuthStateChanged(u => {
-  // un compte e-mail/mot de passe non vérifié portant l'adresse admin est refusé
-  if (u && !u.emailVerified && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-    auth.signOut(); alert('Cette adresse est réservée : connecte-toi avec le bouton Google.'); return;
+auth.onAuthStateChanged(async u => {
+  pending = null; user = null; isAdmin = false;
+  if (u) {
+    if (!u.emailVerified) pending = u;
+    else {
+      let blocked = false;
+      try { const d = await db.collection('users').doc(u.uid).get(); blocked = d.exists && d.data().blocked === true; } catch (e) {}
+      if (blocked) { flash = 'Ton accès a été suspendu par l’administrateur.'; await auth.signOut(); return; }
+      user = u; isAdmin = (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    }
   }
-  user = u; isAdmin = !!u && (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  $('#out').hidden = !u; watchMsgs();
-  if (u) db.collection('users').doc(u.uid).set({name: nm(u), email: u.email, seen: Date.now()}, {merge: true}).catch(() => {});
-  setWho();
-  route();
+  $('#out').hidden = !user; watchMsgs();
+  if (user) db.collection('users').doc(user.uid).set({name: nm(user), email: user.email, seen: Date.now()}, {merge: true}).catch(() => {});
+  setWho(); route();
 });
 $('#out').onclick = () => auth.signOut();
 addEventListener('hashchange', route);
@@ -249,7 +257,7 @@ const AUTHMSG = {
   'auth/wrong-password': 'E-mail ou mot de passe incorrect.',
   'auth/user-not-found': 'E-mail ou mot de passe incorrect.',
   'auth/email-already-in-use': 'Un compte existe déjà avec cet e-mail. Connecte-toi, ou utilise « Mot de passe oublié ». Si tu t’es connecté avec Google, utilise le bouton Google.',
-  'auth/weak-password': 'Mot de passe trop court : 6 caractères minimum.',
+  'auth/weak-password': 'Mot de passe trop court : 10 caractères minimum.',
   'auth/too-many-requests': 'Trop d’essais. Attends quelques minutes puis réessaie.',
   'auth/network-request-failed': 'Réseau indisponible. Réessaie.',
   'auth/operation-not-allowed': 'La connexion par e-mail n’est pas activée dans Firebase (Authentication > Méthode de connexion > E-mail/Mot de passe).'
@@ -278,16 +286,14 @@ function wireEmail() {
     const m = $('#emm').value.trim(), p = $('#emp').value, n = $('#emn').value.trim();
     if (!m) return say($('#emerr'), AUTHMSG['auth/missing-email']);
     if (!p) return say($('#emerr'), AUTHMSG['auth/missing-password']);
+    if (up && p.length < 10) return say($('#emerr'), 'Mot de passe : 10 caractères minimum.');
     say(null, ''); $('#emgo').disabled = true;
     try {
       if (up) {
         const c = await auth.createUserWithEmailAndPassword(m, p);
-        if (n) {
-          await c.user.updateProfile({displayName: n}); await c.user.reload();
-          user = auth.currentUser; setWho();
-          db.collection('users').doc(user.uid).set({name: nm(user), email: user.email, seen: Date.now()}, {merge: true}).catch(() => {});
-          route();
-        }
+        if (n) await c.user.updateProfile({displayName: n.slice(0, 40)});
+        await c.user.sendEmailVerification().catch(() => {});
+        route();
       } else await auth.signInWithEmailAndPassword(m, p);
     } catch (e) { say($('#emerr'), authMsg(e)); if ($('#emgo')) $('#emgo').disabled = false; }
   };
@@ -295,10 +301,24 @@ function wireEmail() {
   $('#emailbox').onkeydown = e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); submit(); } };
 }
 
+function verifyScreen() {
+  app.innerHTML = `<section class="hero"><div class="kicker">Dernière étape</div><h1>Vérifie ton e-mail.</h1>
+  <p class="lead">Un lien de confirmation a été envoyé à <b>${esc(pending.email)}</b>. Clique dessus (regarde aussi les spams), puis reviens ici.</p>
+  <p id="ve" class="err" hidden></p><p id="vo" class="tag" hidden></p>
+  <p><button id="vchk" style="width:100%">J’ai confirmé mon e-mail</button></p>
+  <p><button class="alt" id="vsend" style="width:100%">Renvoyer le lien</button></p>
+  <p style="text-align:center"><button class="link" id="vout">Changer de compte</button></p></section>`;
+  const say = (id, t) => { $('#ve').hidden = $('#vo').hidden = true; $(id).textContent = t; $(id).hidden = false; };
+  $('#vchk').onclick = async () => { try { await pending.reload(); await pending.getIdToken(true); if (auth.currentUser.emailVerified) location.reload(); else say('#ve', 'Pas encore confirmé. Clique sur le lien reçu par e-mail.'); } catch (e) { say('#ve', authMsg(e)); } };
+  $('#vsend').onclick = async () => { try { await pending.sendEmailVerification(); say('#vo', 'Lien renvoyé.'); } catch (e) { say('#ve', authMsg(e)); } };
+  $('#vout').onclick = () => auth.signOut();
+}
+
 async function route() {
   if (pageUnsub) { pageUnsub(); pageUnsub = null; }
   nav(); app.classList.remove('wide');
   document.body.classList.toggle('out', !user);
+  if (!user && pending) return verifyScreen();
   if (!user) {
     app.innerHTML = `<section class="hero">
       <svg class="bell" viewBox="0 0 96 40" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M30 20h36M14 8v24M22 3v34M74 3v34M82 8v24M6 15v10M90 15v10"/></svg>
@@ -313,7 +333,7 @@ async function route() {
         <div id="emname" hidden><label for="emn">Prénom</label><input id="emn" autocomplete="given-name" placeholder="Pour t’afficher aux autres"></div>
         <label for="emm">E-mail</label><input id="emm" type="email" inputmode="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="toi@exemple.com">
         <label for="emp">Mot de passe</label>
-        <div class="pw"><input id="emp" type="password" autocomplete="current-password" placeholder="6 caractères minimum"><button type="button" class="alt" id="emshow">Voir</button></div>
+        <div class="pw"><input id="emp" type="password" autocomplete="current-password" placeholder="10 caractères minimum"><button type="button" class="alt" id="emshow">Voir</button></div>
         <p id="emerr" class="err" role="alert" hidden></p><p id="emok" class="tag" hidden></p>
         <p style="margin:14px 0 0"><button id="emgo" style="width:100%">Se connecter</button></p>
         <p style="margin:6px 0 0;text-align:center"><button class="link" id="emreset" type="button">Mot de passe oublié ?</button></p>
@@ -324,6 +344,7 @@ async function route() {
         <li><b>Une messagerie intégrée</b><span>Une question sur un exercice ? Écris, la réponse arrive ici.</span></li>
       </ul></section>`;
     wireEmail();
+    if (flash) { const e = $('#emerr'); e.textContent = flash; e.hidden = false; flash = ''; }
     $('#g').onclick = async () => {
       const btn = $('#g'), p = new firebase.auth.GoogleAuthProvider();
       btn.disabled = true; btn.querySelector('span').textContent = 'Connexion…';
@@ -403,7 +424,7 @@ async function viewSession(id, label) {
     <p class="mute">${label ? fmt(s.date) + ' · ' : ''}${n}/${s.exercises.length} exercices faits</p>
     <div class="bar"><i style="width:${s.exercises.length ? n / s.exercises.length * 100 : 0}%"></i></div>
     <div class="card">${s.exercises.map((e, i) => `<div class="ex ${mine.done[i] ? 'done' : ''}"><input type="checkbox" id="c${i}" data-i="${i}" ${mine.done[i] ? 'checked' : ''}>
-      <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div><div class="last" data-last="${i}"></div>${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Voir la vidéo</a>` : ''}
+      <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div><div class="last" data-last="${i}"></div>${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener noreferrer">▶ Voir la vidéo</a>` : ''}
       <input class="w" data-w="${i}" value="${esc(mine.w[i])}" placeholder="Charge réellement utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"></div></div>`).join('')}</div>
     <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
     <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
@@ -432,7 +453,7 @@ const when = t => new Date(t).toLocaleTimeString('fr-FR', {hour: '2-digit', minu
 const dayKey = t => new Date(t - new Date(t).getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
 const dayLabel = t => { const k = dayKey(t), n = Date.now(); return k === dayKey(n) ? "Aujourd'hui" : k === dayKey(n - 864e5) ? 'Hier' : fmt(k); };
 const whenShort = t => dayKey(t) === dayKey(Date.now()) ? when(t) : new Date(t).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'});
-const linkify = t => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">$1</a>');
+const linkify = t => esc(t).replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer nofollow" style="color:inherit;text-decoration:underline">$1</a>');
 
 const pad = n => String(n).padStart(2, '0');
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -654,27 +675,48 @@ addEventListener('appinstalled', () => { const i = $('.inst'); if (i) i.remove()
 if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
 async function usersPage() {
-  const [us, lg] = await Promise.all([db.collection('users').get(), db.collection('logs').get()]);
-  const stats = {};
-  lg.docs.forEach(d => {
-    const l = d.data(), c = stats[l.uid] || (stats[l.uid] = {seances: 0, ex: 0});
-    const n = Object.values(l.done || {}).filter(Boolean).length;
-    if (n) { c.seances++; c.ex += n; }
-  });
-  const list = us.docs.map(d => ({uid: d.id, ...d.data()})).sort((a, b) => (b.seen || 0) - (a.seen || 0));
-  app.innerHTML = `<h1>Inscrits</h1><p class="mute">${list.length} compte${list.length > 1 ? 's' : ''} connecté${list.length > 1 ? 's' : ''} au moins une fois</p>
+  let list = [], stats = {}, tab = 'all';
+  const STALE = 60 * 864e5, now = Date.now();
+  const kind = u => u.blocked ? 'blocked' : (!u.seen || now - u.seen > STALE) ? 'stale' : 'active';
+  const load = async () => {
+    const [us, lg] = await Promise.all([db.collection('users').get(), db.collection('logs').get()]);
+    stats = {};
+    lg.docs.forEach(d => { const l = d.data(), c = stats[l.uid] || (stats[l.uid] = {seances: 0, ex: 0}), n = Object.values(l.done || {}).filter(Boolean).length; if (n) { c.seances++; c.ex += n; } });
+    list = us.docs.map(d => ({uid: d.id, ...d.data()})).sort((a, b) => (b.seen || 0) - (a.seen || 0));
+  };
+  const isAdm = u => (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const purge = async us => {
+    const refs = [];
+    for (const u of us) {
+      refs.push(db.collection('users').doc(u.uid));
+      (await db.collection('logs').where('uid', '==', u.uid).get()).docs.forEach(d => refs.push(d.ref));
+      (await db.collection('messages').where('uid', '==', u.uid).get()).docs.forEach(d => refs.push(d.ref));
+    }
+    for (let i = 0; i < refs.length; i += 450) { const b = db.batch(); refs.slice(i, i + 450).forEach(r => b.delete(r)); await b.commit(); }
+  };
+  const run = async f => { try { await f(); await load(); draw(); } catch (e) { alert(e.message); } };
+  await load();
+  app.innerHTML = `<h1>Inscrits</h1><div class="seg" id="ut"></div><p class="mute" id="uh"></p>
     <input id="q" type="search" placeholder="Rechercher un nom ou un e-mail" aria-label="Rechercher"><div id="ul" style="margin-top:8px"></div>`;
   const draw = () => {
-    const q = $('#q').value.trim().toLowerCase();
-    const f = list.filter(u => ((u.name || '') + ' ' + (u.email || '')).toLowerCase().includes(q));
+    const q = $('#q').value.trim().toLowerCase(), cnt = k => list.filter(u => k === 'all' || kind(u) === k).length;
+    $('#ut').innerHTML = [['all', 'Tous'], ['active', 'Actifs'], ['stale', 'Inactifs'], ['blocked', 'Bloqués']].map(([k, t]) => `<a href="#" data-t="${k}" class="${tab === k ? 'on' : ''}">${t} (${cnt(k)})</a>`).join('');
+    $('#ut').querySelectorAll('a').forEach(a => a.onclick = e => { e.preventDefault(); tab = a.dataset.t; draw(); });
+    const f = list.filter(u => (tab === 'all' || kind(u) === tab) && ((u.name || '') + ' ' + (u.email || '')).toLowerCase().includes(q));
+    const bulk = tab === 'stale' ? f.filter(u => !isAdm(u) && u.uid !== user.uid) : [];
+    $('#uh').innerHTML = tab === 'stale' ? `Pas connectés depuis plus de 60 jours.${bulk.length ? ' <button class="del" id="ubulk">Supprimer ces ' + bulk.length + ' comptes</button>' : ''}` : 'Si tu supprimes quelqu’un de Firebase Authentication, supprime-le aussi ici. Pour couper un accès tout de suite, utilise « Bloquer ».';
     $('#ul').innerHTML = f.length ? f.map(u => {
-      const st = stats[u.uid] || {seances: 0, ex: 0}, adm = (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-      return `<div class="card usr"><div class="av">${esc((u.name || '?').trim()[0] || '?').toUpperCase()}</div>
-        <div style="flex:1;min-width:0"><b>${esc(u.name)}</b>${adm ? ' <span class="tag">Admin</span>' : ''}${u.uid === user.uid ? ' <span class="mute">(toi)</span>' : ''}<br>
+      const st = stats[u.uid] || {seances: 0, ex: 0}, me = u.uid === user.uid;
+      return `<div class="card"><div class="usr"><div class="av">${esc((u.name || '?').trim()[0] || '?').toUpperCase()}</div>
+        <div style="flex:1;min-width:0"><b>${esc(u.name)}</b>${isAdm(u) ? ' <span class="tag">Admin</span>' : ''}${me ? ' <span class="mute">(toi)</span>' : ''}${u.blocked ? ' <span class="err">Bloqué</span>' : ''}<br>
         <span class="mute" style="overflow-wrap:anywhere">${esc(u.email)}</span><br>
-        <span class="mute">Vu ${u.seen ? dayLabel(u.seen).toLowerCase() + ' à ' + when(u.seen) : 'jamais'} · ${st.seances} séance${st.seances > 1 ? 's' : ''} suivie${st.seances > 1 ? 's' : ''} · ${st.ex} exercice${st.ex > 1 ? 's' : ''}</span></div>
-        ${u.uid !== user.uid ? `<a class="btn alt" href="#/messages/${esc(u.uid)}">Message</a>` : ''}</div>`;
+        <span class="mute">Vu ${u.seen ? dayLabel(u.seen).toLowerCase() + ' à ' + when(u.seen) : 'jamais'} · ${st.seances} séance${st.seances > 1 ? 's' : ''} · ${st.ex} exercice${st.ex > 1 ? 's' : ''}</span></div></div>
+        ${me || isAdm(u) ? '' : `<p class="row" style="margin:10px 0 0"><a class="btn alt" href="#/messages/${esc(u.uid)}">Message</a><button class="alt" data-bl="${esc(u.uid)}">${u.blocked ? 'Débloquer' : 'Bloquer'}</button><button class="del" data-rm="${esc(u.uid)}">Supprimer</button></p>`}</div>`;
     }).join('') : '<p class="mute">Aucun résultat.</p>';
+    const by = id => list.find(u => u.uid === id);
+    $('#ul').querySelectorAll('[data-bl]').forEach(b => b.onclick = () => { const u = by(b.dataset.bl); if (!u.blocked && !confirm('Bloquer ' + u.name + ' ? Son accès est coupé immédiatement.')) return; run(() => db.collection('users').doc(u.uid).update(u.blocked ? {blocked: firebase.firestore.FieldValue.delete()} : {blocked: true, blockedAt: Date.now()})); });
+    $('#ul').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const u = by(b.dataset.rm); if (confirm('Supprimer ' + u.name + ' et toutes ses données (suivi, messages) ?\nSi son compte existe encore dans Firebase Authentication, il réapparaîtra à sa prochaine connexion : préfère « Bloquer ».')) run(() => purge([u])); });
+    if ($('#ubulk')) $('#ubulk').onclick = () => { if (confirm('Supprimer définitivement ' + bulk.length + ' comptes inactifs et leurs données ?')) run(() => purge(bulk)); };
   };
   $('#q').oninput = draw; draw();
 }
@@ -745,38 +787,57 @@ async function thread(uid, nameHint) {
   };
 }
 
+const addDays = (k, n) => { const d = new Date(k + 'T12:00'); d.setDate(d.getDate() + n); return iso(d); };
+const LIM = {name: 80, sets: 10, reps: 20, load: 30, rest: 20, notes: 200, video: 300};
+const parseLines = t => t.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 40).map(l => {
+  const [name, sr, load, rest, notes] = l.split('|').map(x => x.trim()), m = /^(\d+)\s*[x×*]\s*(.+)$/i.exec(sr || '');
+  return {...blank(), name: name || '', sets: m ? m[1] : '', reps: m ? m[2] : (sr || ''), load: load || '', rest: rest || '', notes: notes || ''};
+});
 async function editSession(id, preset) {
   let s = {title: '', date: /^\d{4}-\d{2}-\d{2}$/.test(preset || '') ? preset : today(), exercises: [blank()]};
   if (id) { const d = await db.collection('sessions').doc(id).get(); if (d.exists) s = d.data(); }
-  const known = new Set(DEFAULTS);
-  (await all()).forEach(x => x.exercises.forEach(e => known.add(e.name)));
-  const field = (i, k, ph, v) => `<input data-i="${i}" data-k="${k}" value="${esc(v)}" placeholder="${ph}" aria-label="${ph}">`;
+  s.rep = 1; s.bulk = '';
+  const existing = await all(), known = new Set(DEFAULTS);
+  existing.forEach(x => x.exercises.forEach(e => known.add(e.name)));
+  const field = (i, k, ph, v) => `<input data-i="${i}" data-k="${k}" maxlength="${LIM[k]}" value="${esc(v)}" placeholder="${ph}" aria-label="${ph}">`;
   const draw = () => {
     app.innerHTML = `<h1>${id ? 'Modifier la séance' : 'Nouvelle séance'}</h1>
     <datalist id="exlist">${[...known].map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-    <label for="t">Titre</label><input id="t" value="${esc(s.title)}" placeholder="Pecs / triceps">
-    <label for="d">Date</label><input id="d" type="date" value="${s.date}">
+    <label for="t">Titre</label><input id="t" maxlength="100" value="${esc(s.title)}" placeholder="Pecs / triceps">
+    <label for="d">Date</label><input id="d" type="date" value="${esc(s.date)}">
+    ${id ? '' : `<div class="card"><b>Gagner du temps</b>
+      <label for="tpl">Partir d’une séance existante</label><div class="row nowrap"><select id="tpl"><option value="">Choisir…</option>${existing.map(x => `<option value="${esc(x.id)}">${esc(x.title)} — ${esc(fmt(x.date))}</option>`).join('')}</select><button class="alt" id="tplgo" style="flex:none">Charger</button></div>
+      <label for="rep">Répéter chaque semaine</label><select id="rep">${[1, 2, 3, 4, 6, 8, 12].map(n => `<option value="${n}" ${n === s.rep ? 'selected' : ''}>${n === 1 ? 'Une seule fois' : n + ' semaines (même jour)'}</option>`).join('')}</select>
+      <label for="bulk">Coller une liste d’exercices</label><textarea id="bulk" rows="4" placeholder="Développé couché | 4x10 | 60 kg | 90 s | tempo 3-1-1">${esc(s.bulk)}</textarea>
+      <p class="mute" style="margin:4px 0 8px;font-size:14px">Une ligne par exercice : nom | séries x reps | charge | repos | consigne</p><button class="alt" id="bulkgo">Ajouter ces exercices</button></div>`}
     <h2>Exercices (${s.exercises.length})</h2>${s.exercises.map((e, i) => `<div class="card">
-      <input data-i="${i}" data-k="name" list="exlist" value="${esc(e.name)}" placeholder="Nom de l'exercice" aria-label="Nom de l'exercice ${i + 1}">
+      <input data-i="${i}" data-k="name" maxlength="${LIM.name}" list="exlist" value="${esc(e.name)}" placeholder="Nom de l'exercice" aria-label="Nom de l'exercice ${i + 1}">
       <div class="row" style="margin-top:8px">${field(i, 'sets', 'Séries', e.sets)}${field(i, 'reps', 'Reps', e.reps)}${field(i, 'load', 'Charge', e.load)}${field(i, 'rest', 'Repos', e.rest)}</div>
       <div style="margin-top:8px">${field(i, 'notes', 'Consigne (tempo, technique…)', e.notes)}</div>
-      <div style="margin-top:8px"><input type="url" inputmode="url" autocapitalize="off" data-i="${i}" data-k="video" value="${esc(e.video)}" placeholder="Lien vidéo YouTube (optionnel)" aria-label="Lien vidéo YouTube"></div>
+      <div style="margin-top:8px"><input type="url" inputmode="url" autocapitalize="off" maxlength="${LIM.video}" data-i="${i}" data-k="video" value="${esc(e.video)}" placeholder="Lien vidéo YouTube ou Vimeo (optionnel)" aria-label="Lien vidéo"></div>
       <p class="row" style="margin:10px 0 0;flex:none"><button class="link" data-up="${i}" ${i ? '' : 'disabled'}>Monter</button><button class="link" data-down="${i}" ${i < s.exercises.length - 1 ? '' : 'disabled'}>Descendre</button><button class="link" data-cp="${i}">Dupliquer</button><button class="link" data-rm="${i}">Retirer</button></p></div>`).join('')}
     <p class="row stick"><button class="alt" id="add">+ Ajouter un exercice</button><button id="sv">Enregistrer la séance</button></p>`;
-    const read = () => { s.title = $('#t').value; s.date = $('#d').value; app.querySelectorAll('[data-k]').forEach(i => s.exercises[i.dataset.i][i.dataset.k] = i.value); };
+    const read = () => { s.title = $('#t').value; s.date = $('#d').value; if ($('#rep')) s.rep = +$('#rep').value; if ($('#bulk')) s.bulk = $('#bulk').value; app.querySelectorAll('[data-k]').forEach(i => s.exercises[i.dataset.i][i.dataset.k] = i.value); };
     const on = (sel, f) => app.querySelectorAll(sel).forEach(b => b.onclick = () => { read(); f(+Object.values(b.dataset)[0]); draw(); });
+    const empty = () => s.exercises.length === 1 && !s.exercises[0].name.trim();
     $('#add').onclick = () => { read(); s.exercises.push(blank()); draw(); };
+    if ($('#tplgo')) $('#tplgo').onclick = () => { read(); const t = existing.find(x => x.id === $('#tpl').value); if (!t) return; if (!s.title.trim()) s.title = t.title; s.exercises = clone(t.exercises); draw(); };
+    if ($('#bulkgo')) $('#bulkgo').onclick = () => { read(); const n = parseLines(s.bulk).filter(e => e.name); if (!n.length) return; s.exercises = (empty() ? [] : s.exercises).concat(n).slice(0, 60); s.bulk = ''; draw(); };
     on('[data-rm]', i => s.exercises.splice(i, 1));
     on('[data-cp]', i => s.exercises.splice(i + 1, 0, {...s.exercises[i]}));
     on('[data-up]', i => { if (i) [s.exercises[i - 1], s.exercises[i]] = [s.exercises[i], s.exercises[i - 1]]; });
     on('[data-down]', i => { if (i < s.exercises.length - 1) [s.exercises[i + 1], s.exercises[i]] = [s.exercises[i], s.exercises[i + 1]]; });
     $('#sv').onclick = async () => {
-      read(); const ex = s.exercises.filter(e => e.name.trim()).map(e => ({...e, name: e.name.trim(), video: (e.video || '').trim()}));
-      const bad = ex.find(e => e.video && !okUrl(e.video)); if (bad) return alert('Lien vidéo invalide pour « ' + bad.name + ' » : il doit commencer par https://');
-      if (!s.title.trim() || !ex.length || !s.date) return alert('Il faut un titre, une date et au moins un exercice.');
-      const ref = id ? db.collection('sessions').doc(id) : db.collection('sessions').doc();
-      await ref.set({title: s.title.trim(), date: s.date, exercises: ex});
-      location.hash = '#/seance/' + ref.id;
+      read();
+      const ex = s.exercises.filter(e => e.name.trim()).map(e => { const o = {}; Object.keys(LIM).forEach(k => o[k] = String(e[k] || '').trim().slice(0, LIM[k])); return o; });
+      const bad = ex.find(e => e.video && !okUrl(e.video)); if (bad) return alert('Lien vidéo invalide pour « ' + bad.name + ' » : https:// et YouTube ou Vimeo uniquement.');
+      if (!s.title.trim() || !ex.length || !/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return alert('Il faut un titre, une date et au moins un exercice.');
+      $('#sv').disabled = true;
+      const dates = id ? [s.date] : Array.from({length: s.rep || 1}, (_, k) => addDays(s.date, 7 * k));
+      const b = db.batch(); let first;
+      dates.forEach((d, k) => { const r = id ? db.collection('sessions').doc(id) : db.collection('sessions').doc(); if (!k) first = r.id; b.set(r, {title: s.title.trim().slice(0, 100), date: d, exercises: clone(ex)}); });
+      try { await b.commit(); } catch (e) { $('#sv').disabled = false; return alert(e.message); }
+      location.hash = dates.length > 1 ? '#/calendrier' : '#/seance/' + first;
     };
   };
   draw();
