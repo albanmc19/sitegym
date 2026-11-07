@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1f4bff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Séances">
 <title>Séances</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;500;600&display=swap">
 <style>
@@ -137,6 +142,25 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(-
 .err{color:#d6382f;font-weight:600;margin:10px 0 0}
 .pw{display:flex;gap:8px}.pw input{flex:1;min-width:0}.pw button{flex:none;min-height:44px}
 .hero #emailbox{margin:0 0 30px}
+.last{font-size:14px;color:var(--ok);font-weight:600}
+.last:empty{display:none}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font:800 38px/1 'Barlow Condensed',sans-serif}
+.stat span{color:var(--mute);font-size:14px}
+.wk{display:flex;gap:8px;height:130px;margin:10px 0 4px}
+.wk div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%}
+.wk em{font-style:normal;font-size:12px;color:var(--mute)}
+.wk i{display:block;width:100%;background:var(--acc);border-radius:6px 6px 2px 2px;min-height:3px}
+.wk i.now{background:var(--ok)}
+.wkl{display:flex;gap:8px}.wkl span{flex:1;text-align:center;font-size:11px;color:var(--mute)}
+.lc{width:100%;height:auto;display:block}
+.lc-line{fill:none;stroke:var(--acc);stroke-width:2.5;stroke-linejoin:round}
+.lc-dot{fill:var(--acc)}.lc-pr{fill:var(--ok)}
+.lc-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:3 3}
+.lc-txt{fill:var(--mute);font-size:10px}
+.inst{border-left:4px solid var(--acc)}
+@media(min-width:600px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -192,6 +216,7 @@ addEventListener('hashchange', route);
 const ICO = {
   home: '<path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  chart: '<path d="M3 3v18h18M7 15l4-4 3 3 5-6"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
   pen: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
@@ -202,7 +227,7 @@ let unread = 0, unsub = null, pageUnsub = null;
 function nav() {
   document.title = (unread ? `(${unread}) ` : '') + 'Séances';
   const h = location.hash || '#/';
-  const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
+  const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/']], ['#/progres', 'chart', 'Progrès', ['#/progres']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
   if (isAdmin) l.push(['#/admin', 'pen', 'Gérer', ['#/admin', '#/inscrits']]);
   $('#nav').innerHTML = user ? l.map(([a, i, t, m]) => `<a href="${a}" class="${(a === '#/' ? h === '#/' : m.some(p => h.startsWith(p))) ? 'on' : ''}">${icon(i)}<span>${t}</span>${a === '#/messages' && unread ? `<span class="bd">${unread}</span>` : ''}</a>`).join('') : '';
 }
@@ -316,10 +341,11 @@ async function route() {
     if (page === 'seance') return await viewSession(id);
     if (page === 'calendrier') return await calendarPage();
     if (page === 'inscrits' && isAdmin) return await usersPage();
+    if (page === 'progres') return await progressPage();
     if (page === 'messages') return await messagesPage(id);
     if (page === 'seances') return await listSessions();
     if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id, extra) : await adminList();
-    return await home();
+    await home(); return addInstall();
   } catch (e) { app.innerHTML = `<div class="card">Erreur : ${esc(e.message)}</div>`; }
 }
 
@@ -362,13 +388,22 @@ async function viewSession(id, label) {
   const logRef = db.collection('logs').doc(id + '_' + user.uid);
   const mine = Object.assign({done: {}, w: {}, note: ''}, (await logRef.get()).data());
   mine.w = mine.w || {};
+  const fill = () => getHistory(user.uid).then(h => {
+    s.exercises.forEach((e, i) => {
+      const el = app.querySelector(`[data-last="${i}"]`); if (!el) return;
+      const k = e.name.trim().toLowerCase(), l = h.entries.filter(x => x.key === k && x.id !== id && x.date <= s.date);
+      if (!l.length) return;
+      const last = l[l.length - 1], nums = l.filter(x => x.num != null), best = nums.length ? nums.reduce((a, b) => b.num >= a.num ? b : a) : null;
+      el.textContent = `Dernière fois : ${last.w} (${short(last.date)})` + (best && best.num !== last.num ? ` · Record : ${best.w}` : '');
+    });
+  }).catch(() => {});
   const render = () => {
     const n = s.exercises.filter((_, i) => mine.done[i]).length;
     app.innerHTML = `<p class="mute">${label || fmt(s.date)}</p><h1>${esc(s.title)}</h1>
     <p class="mute">${label ? fmt(s.date) + ' · ' : ''}${n}/${s.exercises.length} exercices faits</p>
     <div class="bar"><i style="width:${s.exercises.length ? n / s.exercises.length * 100 : 0}%"></i></div>
     <div class="card">${s.exercises.map((e, i) => `<div class="ex ${mine.done[i] ? 'done' : ''}"><input type="checkbox" id="c${i}" data-i="${i}" ${mine.done[i] ? 'checked' : ''}>
-      <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div>${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Voir la vidéo</a>` : ''}
+      <div style="flex:1"><label for="c${i}" class="nm" style="margin:0">${esc(e.name)}</label><div class="mute">${esc(detail(e))}</div><div class="last" data-last="${i}"></div>${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Voir la vidéo</a>` : ''}
       <input class="w" data-w="${i}" value="${esc(mine.w[i])}" placeholder="Charge réellement utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"></div></div>`).join('')}</div>
     <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
     <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
@@ -376,6 +411,7 @@ async function viewSession(id, label) {
     app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; save(false); });
     app.querySelectorAll('[data-w]').forEach(i => i.oninput = () => { mine.w[i.dataset.w] = i.value; });
     $('#save').onclick = () => save(true);
+    fill();
     if (isAdmin) $('#cpy').onclick = () => copyModal(s);
     if (isAdmin) db.collection('logs').where('sessionId', '==', id).get().then(q => {
       $('#track').innerHTML = q.empty ? 'Personne n’a encore validé d’exercice.' : q.docs.map(d => {
@@ -491,6 +527,131 @@ async function calendarPage() {
   };
   await loadLogs(); draw();
 }
+
+const short = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'});
+const parseLoad = w => { const m = /(\d+(?:[.,]\d+)?)\s*kg/i.exec(w) || /(\d+(?:[.,]\d+)?)/.exec(w); return m ? parseFloat(m[1].replace(',', '.')) : null; };
+const fmtNum = n => String(Math.round(n * 100) / 100).replace('.', ',');
+let histCache = {};
+
+async function logsOf(uid) {
+  try {
+    return (await db.collection('logs').where('uid', '==', uid).get()).docs.map(d => d.data());
+  } catch (e) {
+    // anciennes règles Firestore : lecture séance par séance
+    const out = [];
+    await Promise.all((await all()).map(async s => {
+      try { const d = await db.collection('logs').doc(s.id + '_' + uid).get(); if (d.exists) out.push(d.data()); } catch (x) {}
+    }));
+    return out;
+  }
+}
+
+async function getHistory(uid, fresh) {
+  const c = histCache[uid];
+  if (!fresh && c && Date.now() - c.t < 300000) return c.v;
+  const [ss, logs] = await Promise.all([all(), logsOf(uid)]);
+  const byId = {}; ss.forEach(s => { byId[s.id] = s; });
+  const entries = [], done = [];
+  logs.forEach(l => {
+    const s = byId[l.sessionId]; if (!s) return;
+    const n = s.exercises.filter((_, i) => l.done && l.done[i]).length;
+    if (n) done.push({date: s.date, id: s.id, title: s.title, n, total: s.exercises.length});
+    s.exercises.forEach((e, i) => {
+      const w = String((l.w || {})[i] || '').trim();
+      if (w) entries.push({date: s.date, id: s.id, title: s.title, name: e.name, key: e.name.trim().toLowerCase(), w, num: parseLoad(w)});
+    });
+  });
+  const by = (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+  entries.sort(by); done.sort(by);
+  const v = {entries, done};
+  histCache[uid] = {t: Date.now(), v};
+  return v;
+}
+
+function computeStats(done) {
+  const dn = k => Math.round(new Date(k + 'T12:00').getTime() / 864e5), t = today();
+  const days = [...new Set(done.map(d => d.date))].sort().map(dn), set = new Set(days);
+  let cur = 0, c = dn(t); if (!set.has(c)) c--;
+  while (set.has(c)) { cur++; c--; }
+  let best = 0, run = 0, prev = null;
+  days.forEach(n => { run = prev !== null && n === prev + 1 ? run + 1 : 1; prev = n; best = Math.max(best, run); });
+  const monday = k => { const d = new Date(k + 'T12:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return iso(d); };
+  const wc = {}; done.forEach(d => { const k = monday(d.date); wc[k] = (wc[k] || 0) + 1; });
+  const m0 = monday(t), bars = [];
+  for (let i = 7; i >= 0; i--) { const d = new Date(m0 + 'T12:00'); d.setDate(d.getDate() - 7 * i); const k = iso(d); bars.push({k, n: wc[k] || 0}); }
+  let ws = 0; const d = new Date(m0 + 'T12:00'); if (!wc[iso(d)]) d.setDate(d.getDate() - 7);
+  while (wc[iso(d)]) { ws++; d.setDate(d.getDate() - 7); }
+  return {cur, best, ws, bars, week: wc[m0] || 0, month: done.filter(x => x.date.startsWith(t.slice(0, 7))).length, total: done.length};
+}
+
+function lineChart(pts) {
+  const W = 320, H = 160, p = {l: 38, r: 12, t: 16, b: 24};
+  const vals = pts.map(x => x.num), mn = Math.min(...vals), mx = Math.max(...vals);
+  const lo = mn === mx ? mn - 1 : mn - (mx - mn) * .15, hi = mn === mx ? mx + 1 : mx + (mx - mn) * .15;
+  const X = i => p.l + (pts.length === 1 ? (W - p.l - p.r) / 2 : i * (W - p.l - p.r) / (pts.length - 1));
+  const Y = v => p.t + (hi - v) / (hi - lo) * (H - p.t - p.b);
+  const prI = vals.indexOf(mx);
+  return `<svg class="lc" viewBox="0 0 ${W} ${H}" role="img" aria-label="Courbe de progression">
+    <line class="lc-grid" x1="${p.l}" x2="${W - p.r}" y1="${Y(mx)}" y2="${Y(mx)}"/><line class="lc-grid" x1="${p.l}" x2="${W - p.r}" y1="${Y(mn)}" y2="${Y(mn)}"/>
+    <text class="lc-txt" x="${p.l - 6}" y="${Y(mx) + 3}" text-anchor="end">${fmtNum(mx)}</text>${mx !== mn ? `<text class="lc-txt" x="${p.l - 6}" y="${Y(mn) + 3}" text-anchor="end">${fmtNum(mn)}</text>` : ''}
+    ${pts.length > 1 ? `<polyline class="lc-line" points="${pts.map((x, i) => X(i).toFixed(1) + ',' + Y(x.num).toFixed(1)).join(' ')}"/>` : ''}
+    ${pts.map((x, i) => `<circle class="${i === prI ? 'lc-pr' : 'lc-dot'}" cx="${X(i).toFixed(1)}" cy="${Y(x.num).toFixed(1)}" r="${i === prI ? 5 : 3.5}"/>`).join('')}
+    <text class="lc-txt" x="${p.l}" y="${H - 6}">${short(pts[0].date)}</text>${pts.length > 1 ? `<text class="lc-txt" x="${W - p.r}" y="${H - 6}" text-anchor="end">${short(pts[pts.length - 1].date)}</text>` : ''}
+  </svg>`;
+}
+
+async function progressPage() {
+  let uid = user.uid, users = [];
+  if (isAdmin) users = (await db.collection('users').get().catch(() => ({docs: []}))).docs.map(d => ({uid: d.id, ...d.data()})).filter(u => u.uid !== user.uid);
+  let exKey = null;
+  const draw = async () => {
+    const h = await getHistory(uid, true), st = computeStats(h.done), mxb = Math.max(3, ...st.bars.map(b => b.n));
+    const groups = {};
+    h.entries.filter(x => x.num != null).forEach(x => { const g = groups[x.key] || (groups[x.key] = {key: x.key, name: x.name, list: []}); g.list.push(x); g.name = x.name; });
+    const names = Object.values(groups).sort((a, b) => b.list.length - a.list.length);
+    if (!names.find(g => g.key === exKey)) exKey = names.length ? names[0].key : null;
+    const g = exKey ? groups[exKey] : null;
+    let exHtml = '<p class="mute">Note tes charges dans les séances : la courbe apparaîtra ici.</p>';
+    if (g) {
+      const l = g.list, last = l[l.length - 1], best = l.reduce((a, b) => b.num >= a.num ? b : a), first = l[0], diff = last.num - first.num;
+      exHtml = `<label for="exs">Exercice</label><select id="exs">${names.map(n => `<option value="${esc(n.key)}" ${n.key === exKey ? 'selected' : ''}>${esc(n.name)} (${n.list.length})</option>`).join('')}</select>
+        <div class="card">${lineChart(l)}</div>
+        <div class="stats"><div class="stat"><b>${fmtNum(last.num)}</b><span>Dernière charge (kg)</span></div><div class="stat"><b>${fmtNum(best.num)}</b><span>Record · ${short(best.date)}</span></div>
+        <div class="stat"><b>${l.length > 1 ? (diff > 0 ? '+' : '') + fmtNum(diff) : '–'}</b><span>Depuis le début (kg)</span></div></div>
+        <div class="card">${l.slice(-8).reverse().map(x => `<a class="item" style="padding:8px 0;border-top:1px solid var(--line)" href="#/seance/${x.id}"><span><b>${esc(x.w)}</b><br><span class="mute">${esc(x.title)}</span></span><span class="mute">${short(x.date)}</span></a>`).join('').replace('border-top:1px solid var(--line)', 'border-top:0')}</div>`;
+    }
+    $('#pbody').innerHTML = `<div class="stats">
+      <div class="stat"><b>${st.week}</b><span>Séances cette semaine</span></div><div class="stat"><b>${st.month}</b><span>Séances ce mois</span></div><div class="stat"><b>${st.total}</b><span>Séances au total</span></div>
+      <div class="stat"><b>${st.cur}</b><span>Jour${st.cur > 1 ? 's' : ''} d’affilée</span></div><div class="stat"><b>${st.best}</b><span>Meilleure série (jours)</span></div><div class="stat"><b>${st.ws}</b><span>Semaine${st.ws > 1 ? 's' : ''} d’affilée</span></div></div>
+      <h2>Séances par semaine</h2><div class="wk">${st.bars.map((b, i) => `<div><em>${b.n}</em><i class="${i === st.bars.length - 1 ? 'now' : ''}" style="height:${b.n / mxb * 78}%"></i></div>`).join('')}</div>
+      <div class="wkl">${st.bars.map(b => `<span>${short(b.k)}</span>`).join('')}</div>
+      <h2>Progression d’un exercice</h2>${exHtml}`;
+    if ($('#exs')) $('#exs').onchange = e => { exKey = e.target.value; draw(); };
+  };
+  app.innerHTML = `<h1>Progrès</h1>${isAdmin && users.length ? `<label for="pu">Voir les progrès de</label><select id="pu"><option value="${user.uid}">Moi</option>${users.map(u => `<option value="${esc(u.uid)}">${esc(u.name)}</option>`).join('')}</select>` : ''}<div id="pbody"><p class="mute">Chargement…</p></div>`;
+  if ($('#pu')) $('#pu').onchange = e => { uid = e.target.value; exKey = null; draw(); };
+  try { await draw(); } catch (e) { $('#pbody').innerHTML = `<div class="card">Erreur : ${esc(e.message)}</div>`; }
+}
+
+// ----- Installation comme une appli -----
+let deferredPrompt = null;
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const instOff = () => { try { return localStorage.getItem('instOff') === '1'; } catch (e) { return false; } };
+function addInstall() {
+  if (!user || standalone() || instOff() || $('.inst') || !$('#app')) return;
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!deferredPrompt && !ios) return;
+  const d = document.createElement('div');
+  d.className = 'card inst';
+  d.innerHTML = `<b>Installer l’appli</b><p class="mute" style="margin:6px 0 12px">${ios ? 'Dans Safari, touche <b>Partager</b> (le carré avec une flèche), puis <b>Sur l’écran d’accueil</b>.' : 'Ouvre le site comme une vraie appli, depuis ton écran d’accueil.'}</p>
+    <p class="row" style="margin:0">${ios ? '' : '<button id="instgo">Installer</button>'}<button class="alt" id="instx">Plus tard</button></p>`;
+  app.prepend(d);
+  $('#instx').onclick = () => { try { localStorage.setItem('instOff', '1'); } catch (e) {} d.remove(); };
+  if ($('#instgo')) $('#instgo').onclick = async () => { deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; d.remove(); };
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; if ((location.hash || '#/') === '#/') addInstall(); });
+addEventListener('appinstalled', () => { const i = $('.inst'); if (i) i.remove(); });
+if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
 async function usersPage() {
   const [us, lg] = await Promise.all([db.collection('users').get(), db.collection('logs').get()]);
