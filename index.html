@@ -229,6 +229,18 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .wrow:first-child{border-top:0}
 .wrow button.x{background:none;border:0;color:var(--bad);min-height:0;padding:6px 8px;font-size:14px}
 .bfc{border-color:color-mix(in srgb,var(--acc) 40%,var(--line))}
+
+.hi{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:4px 0 18px}
+.hi h1{font-size:clamp(30px,7vw,44px);margin:2px 0 4px}
+.hi>a{text-decoration:none;flex:none}.hi .av{width:60px;height:60px;font-size:26px}
+.hs{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:inherit;border-color:color-mix(in srgb,var(--acc) 45%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 10%,transparent)}
+.hs .hst{font:800 28px/1.1 var(--hf);letter-spacing:-.02em}
+.hs .btn{margin-top:8px;align-self:stretch}
+.qa{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.qa a{display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;text-decoration:none;color:inherit;transition:border-color .15s}
+.qa a:hover{border-color:var(--acc)}
+.qa .ic{width:26px;height:26px;color:var(--acc)}
+.qa b{font-weight:600}.qa small{color:var(--mute);font-size:13px;margin-top:-6px}
 </style>
 </head>
 <body>
@@ -665,10 +677,28 @@ async function all() {
 }
 
 async function home() {
-  const list = await all(), t = today();
+  const t = today(), list = await all();
   const s = list.find(x => x.date === t) || [...list].reverse().find(x => x.date > t) || list[0];
-  if (!s) { app.innerHTML = `<h1>Rien de prévu</h1><p class="mute">Aucune séance pour le moment.</p>${isAdmin ? '<a class="btn" href="#/admin/new">Créer la première séance</a>' : ''}`; return; }
-  return viewSession(s.id, s.date === t ? "Aujourd'hui" : s.date > t ? 'Prochaine séance' : 'Dernière séance');
+  ICO.scale = '<path d="M12 3v18M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/>';
+  let hist = null, st = null, w = null;
+  await Promise.all([
+    getHistory(user.uid).then(h => { hist = h; st = computeStats(h.done); }).catch(() => {}),
+    db.collection('weights').where('uid', '==', user.uid).get().then(r => { const l = r.docs.map(d => d.data()).sort((a, b) => a.date < b.date ? -1 : 1); w = l.length ? l[l.length - 1] : null; }).catch(() => {})
+  ]);
+  const first = (myProf.name || nm(user)).split(' ')[0], h = new Date().getHours();
+  const hello = h < 5 || h >= 18 ? 'Bonsoir' : h < 12 ? 'Bonjour' : 'Bon après-midi';
+  const dn = s && hist ? hist.done.find(d => d.id === s.id) : null, fin = !!(dn && dn.total && dn.n >= dn.total);
+  let msg = !s ? 'Aucune séance de prévue pour le moment.'
+    : s.date === t ? (fin ? 'Séance du jour terminée, bien joué.' : dn ? `Séance en cours : ${dn.n}/${dn.total} exercices faits.` : 'Ta séance du jour est prête.')
+    : s.date > t ? `Prochaine séance : ${fmt(s.date)}.` : 'Voici ta dernière séance.';
+  if (st && st.cur >= 2) msg += ` ${st.cur} jours d’affilée, continue.`;
+  const label = !s ? '' : s.date === t ? "Aujourd'hui" : s.date > t ? 'Prochaine séance' : 'Dernière séance';
+  const cta = fin ? 'Revoir la séance' : dn && dn.n ? 'Reprendre' : 'Commencer';
+  const tile = (href, ic, title, sub, bd) => `<a href="${href}">${icon(ic)}<b>${title}${bd ? `<span class="bd">${bd}</span>` : ''}</b>${sub ? `<small>${sub}</small>` : ''}</a>`;
+  app.innerHTML = `<div class="hi"><div><span class="hk kicker">${esc(fmt(t))}</span><h1>${hello}, ${esc(first)}</h1><p class="mute" style="margin:0">${esc(msg)}</p></div><a href="#/profil" aria-label="Mon profil">${av({uid: user.uid, name: first, photo: myProf.photo})}</a></div>
+  ${s ? `<a class="card hs" href="#/seance/${esc(s.id)}"><span class="kicker">${label}</span><span class="hst">${esc(s.title)}</span><span class="mute">${s.exercises.length} exercice${s.exercises.length > 1 ? 's' : ''}${s.date !== t ? ' · ' + esc(fmt(s.date)) : ''}</span>${dn ? `<div class="bar"><i style="width:${Math.round(dn.n / Math.max(1, dn.total) * 100)}%"></i></div>` : ''}<span class="btn">${cta}</span></a>` : (isAdmin ? '<a class="btn" href="#/admin/new">Créer la première séance</a>' : '')}
+  ${st ? `<div class="stats s3"><div class="stat"><b>${st.week}</b><span>Cette semaine</span></div><div class="stat"><b>${st.cur}</b><span>Jour${st.cur > 1 ? 's' : ''} d’affilée</span></div><div class="stat"><b>${st.total}</b><span>Au total</span></div></div>` : ''}
+  <div class="qa">${tile('#/calendrier', 'cal', 'Calendrier', 'Toutes les séances')}${tile('#/progres', 'chart', 'Progrès', 'Charges et séries')}${tile('#/poids', 'scale', 'Poids', w ? fmtNum(w.kg) + ' kg · ' + short(w.date) : 'Ajouter une pesée')}${tile('#/musique', 'music', 'Musique', 'Spotify')}${tile('#/messages', 'chat', 'Messages', unread ? `${unread} non lu${unread > 1 ? 's' : ''}` : 'Écrire à Alban', unread || '')}${tile('#/membres', 'users', 'Membres', 'Suivre des personnes')}${isAdmin ? tile('#/admin', 'pen', 'Gérer', 'Séances et inscrits') : ''}</div>`;
 }
 
 
