@@ -210,6 +210,25 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .wr button{flex:none;width:52px;min-height:46px;padding:0;font-size:22px}
 .fin{border-color:var(--ok);color:var(--ok);font-weight:600;text-align:center}
 .xc.done .pills,.xc.done .xnote,.xc.done .vid{display:none}
+
+.av{width:48px;height:48px;border-radius:50%;background:var(--soft) center/cover no-repeat;display:grid;place-items:center;font:800 20px var(--hf);color:var(--acc);flex:none;position:relative}
+.av.xl{width:104px;height:104px;font-size:44px}
+.av.on:after{content:"";position:absolute;right:0;bottom:0;width:13px;height:13px;border-radius:50%;background:var(--ok);border:2.5px solid var(--card)}
+.av.xl.on:after{width:20px;height:20px;border-width:3.5px;right:3px;bottom:3px}
+.ph{display:flex;gap:18px;align-items:center;margin:6px 0 14px}
+.ph h1{margin:0;font-size:clamp(26px,6vw,38px)}
+.on-t{color:var(--ok);font-weight:600}
+.mem{display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;flex:1;min-width:0}
+.mem>span{min-width:0}.mem b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fb{min-height:40px;padding:6px 16px;font-size:15px;flex:none}
+.bio{margin:4px 0 14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.stats.s3{grid-template-columns:repeat(3,minmax(0,1fr))}.stats.s3 .stat b{font-size:32px}
+.stat.btnst{cursor:pointer;text-align:left;font:inherit;color:inherit}
+.stat.btnst.on{border-color:var(--acc)}
+.wrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.wrow:first-child{border-top:0}
+.wrow button.x{background:none;border:0;color:var(--bad);min-height:0;padding:6px 8px;font-size:14px}
+.bfc{border-color:color-mix(in srgb,var(--acc) 40%,var(--line))}
 </style>
 </head>
 <body>
@@ -245,24 +264,24 @@ const fmt = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', {weekday:'lo
 const blank = () => ({name: '', sets: '', reps: '', load: '', rest: '', notes: '', video: ''});
 const detail = e => [e.sets && e.reps ? `${e.sets} × ${e.reps}` : (e.sets && e.sets + ' séries') || (e.reps && e.reps + ' reps'), e.load, e.rest && 'repos ' + e.rest, e.notes].filter(Boolean).join(' · ');
 const DEFAULTS = ['Développé couché prise contre pecs','Chest press (pecs)','Pec fly banc','Mollet extension','Genou extension','Développé couché','Développé incliné','Pompes','Dips','Tractions','Rowing barre','Tirage vertical','Développé militaire','Élévations latérales','Curl biceps','Extension triceps','Squat','Presse à cuisses','Fentes','Soulevé de terre roumain','Leg curl','Mollets debout','Gainage','Crunch'];
-let user = null, isAdmin = false, pending = null, flash = '';
+let user = null, isAdmin = false, pending = null, flash = '', myProf = {};
 
 const nm = u => u.displayName || (u.email || '').split('@')[0];
-function setWho() { $('#who').textContent = user ? nm(user).split(' ')[0] + (isAdmin ? ' (admin)' : '') : ''; const m = $('#me'); if (m) { m.hidden = !user; m.textContent = user ? (nm(user)[0] || '?').toUpperCase() : ''; } }
+function setWho() { $('#who').textContent = user ? nm(user).split(' ')[0] + (isAdmin ? ' (admin)' : '') : ''; const m = $('#me'); if (m) { m.hidden = !user; const ph = user ? safePhoto(myProf.photo) : ''; m.style.backgroundImage = ph ? `url(${ph})` : ''; m.style.backgroundSize = 'cover'; m.textContent = ph || !user ? '' : ((myProf.name || nm(user))[0] || '?').toUpperCase(); } }
 auth.onAuthStateChanged(async u => {
-  pending = null; user = null; isAdmin = false;
+  pending = null; user = null; isAdmin = false; myProf = {};
   if (u) {
     if (!u.emailVerified) pending = u;
     else {
       let blocked = false;
-      try { const d = await db.collection('users').doc(u.uid).get(); blocked = d.exists && d.data().blocked === true; } catch (e) {}
+      try { const d = await db.collection('users').doc(u.uid).get(); blocked = d.exists && d.data().blocked === true; myProf = d.exists ? d.data() : {}; } catch (e) {}
       if (blocked) { flash = 'Ton accès a été suspendu par l’administrateur.'; await auth.signOut(); return; }
       user = u; isAdmin = (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
     }
   }
   $('#out').hidden = !user; watchMsgs();
-  if (user) db.collection('users').doc(user.uid).set({name: nm(user), email: user.email, seen: Date.now()}, {merge: true}).catch(() => {});
-  setWho(); route();
+  if (user) db.collection('users').doc(user.uid).set({name: myProf.name || nm(user), email: user.email, seen: Date.now()}, {merge: true}).catch(() => {});
+  beatSync(); setWho(); route();
 });
 $('#out').onclick = () => { stopRest(); auth.signOut(); };
 addEventListener('hashchange', route);
@@ -517,6 +536,7 @@ async function musicPage() {
 async function plusPage() {
   const row = (h, t, sub) => `<a class="card item" href="${h}"><span><b>${t}</b><br><span class="mute">${sub}</span></span><span class="mute">›</span></a>`;
   app.innerHTML = `<h1>${esc(nm(user))}</h1><p class="mute">${esc(user.email)}${isAdmin ? ' · administrateur' : ''}</p>
+  ${row('#/profil', 'Mon profil', 'Photo, abonnés, statut')}${row('#/poids', 'Mon poids', 'Suivi et import Basic-Fit')}${row('#/membres', 'Membres', 'Trouver et suivre des personnes')}
   ${isAdmin ? '<h2>Administration</h2>' + row('#/activite', 'Activité', 'Ce que font les inscrits') + row('#/admin', 'Gérer les séances', 'Créer, modifier, copier') + row('#/inscrits', 'Inscrits', 'Bloquer, supprimer, écrire') : ''}
   <h2>Compte</h2><button id="lo" class="alt" style="width:100%">Se déconnecter</button>`;
   $('#lo').onclick = () => { stopRest(); auth.signOut(); };
@@ -574,6 +594,9 @@ async function route() {
     if (page === 'calendrier') return await calendarPage();
     if (page === 'activite' && isAdmin) return await activityPage(id);
     if (page === 'inscrits' && isAdmin) return await usersPage();
+    if (page === 'profil') return await profilePage(id);
+    if (page === 'membres') return await membersPage();
+    if (page === 'poids') return await weightPage();
     if (page === 'progres') return await progressPage();
     if (page === 'messages') return await messagesPage(id);
     if (page === 'seances') return await listSessions();
@@ -820,13 +843,13 @@ function computeStats(done) {
   return {cur, best, ws, bars, week: wc[m0] || 0, month: done.filter(x => x.date.startsWith(t.slice(0, 7))).length, total: done.length};
 }
 
-function lineChart(pts) {
+function lineChart(pts, plain) {
   const W = 320, H = 160, p = {l: 38, r: 12, t: 16, b: 24};
   const vals = pts.map(x => x.num), mn = Math.min(...vals), mx = Math.max(...vals);
   const lo = mn === mx ? mn - 1 : mn - (mx - mn) * .15, hi = mn === mx ? mx + 1 : mx + (mx - mn) * .15;
   const X = i => p.l + (pts.length === 1 ? (W - p.l - p.r) / 2 : i * (W - p.l - p.r) / (pts.length - 1));
   const Y = v => p.t + (hi - v) / (hi - lo) * (H - p.t - p.b);
-  const prI = vals.indexOf(mx);
+  const prI = plain ? -1 : vals.indexOf(mx);
   return `<svg class="lc" viewBox="0 0 ${W} ${H}" role="img" aria-label="Courbe de progression">
     <line class="lc-grid" x1="${p.l}" x2="${W - p.r}" y1="${Y(mx)}" y2="${Y(mx)}"/><line class="lc-grid" x1="${p.l}" x2="${W - p.r}" y1="${Y(mn)}" y2="${Y(mn)}"/>
     <text class="lc-txt" x="${p.l - 6}" y="${Y(mx) + 3}" text-anchor="end">${fmtNum(mx)}</text>${mx !== mn ? `<text class="lc-txt" x="${p.l - 6}" y="${Y(mn) + 3}" text-anchor="end">${fmtNum(mn)}</text>` : ''}
@@ -1116,6 +1139,196 @@ async function editSession(id, preset) {
     };
   };
   draw();
+}
+
+// ===================== Profils, abonnés, poids =====================
+const safePhoto = p => typeof p === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(p) && p.length < 120000 ? p : '';
+const av = (u, cls = '') => {
+  const ph = safePhoto(u.photo), on = u.uid === (user && user.uid) || isOnline(u.seen);
+  return `<span class="av ${cls} ${on ? 'on' : ''}" ${ph ? `style="background-image:url(${ph})"` : ''} aria-hidden="true">${ph ? '' : esc(((u.name || '?')[0] || '?').toUpperCase())}</span>`;
+};
+const isOnline = ms => ms && Date.now() - ms < 18e4;
+const lastSeen = (ms, self) => {
+  if (self) return 'En ligne';
+  if (!ms) return 'Jamais connecté';
+  const d = Date.now() - ms; if (d < 18e4) return 'En ligne';
+  const m = Math.round(d / 6e4); if (m < 60) return `Actif il y a ${m} min`;
+  const h = Math.round(m / 60); if (h < 24) return `Actif il y a ${h} h`;
+  const j = Math.round(h / 24); if (j === 1) return 'Actif hier'; if (j < 30) return `Actif il y a ${j} jours`;
+  return 'Actif le ' + new Date(ms).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short', year: 'numeric'});
+};
+
+// présence : on met à jour "seen" toutes les minutes tant que l'appli est ouverte
+let beat = null;
+function beatSync() {
+  if (beat) { clearInterval(beat); beat = null; }
+  if (!user) return;
+  const ping = () => { if (user && !document.hidden) db.collection('users').doc(user.uid).update({seen: Date.now()}).catch(() => {}); };
+  beat = setInterval(ping, 60000);
+}
+document.addEventListener('visibilitychange', () => { if (user && !document.hidden) db.collection('users').doc(user.uid).update({seen: Date.now()}).catch(() => {}); });
+
+let ucache = null;
+async function allUsers(fresh) {
+  if (!fresh && ucache && Date.now() - ucache.t < 30000) return ucache.v;
+  const v = {}; (await db.collection('users').get()).docs.forEach(d => { v[d.id] = {uid: d.id, ...d.data()}; });
+  ucache = {t: Date.now(), v}; return v;
+}
+async function toggleFollow(to, isOn) {
+  const r = db.collection('follows').doc(user.uid + '_' + to);
+  if (isOn) await r.delete(); else await r.set({from: user.uid, to, at: Date.now()});
+}
+const fbtn = (uid, on) => `<button class="fb ${on ? 'alt' : ''}" data-f="${esc(uid)}" data-on="${on ? 1 : 0}">${on ? 'Suivi ✓' : 'Suivre'}</button>`;
+const wireFollow = (root, done) => root.querySelectorAll('[data-f]').forEach(b => b.onclick = async () => {
+  b.disabled = true;
+  try { await toggleFollow(b.dataset.f, b.dataset.on === '1'); await done(); } catch (e) { alert('Erreur : ' + e.message); b.disabled = false; }
+});
+const memRow = (u, me, fol) => `<div class="card item"><a class="mem" href="#/profil/${esc(u.uid)}">${av(u)}<span><b>${esc(u.name || 'Sans nom')}${u.uid === me ? ' (moi)' : ''}</b><span class="mute ${isOnline(u.seen) || u.uid === me ? 'on-t' : ''}">${lastSeen(u.seen, u.uid === me)}</span></span></a>${u.uid === me ? '' : fbtn(u.uid, fol.has(u.uid))}</div>`;
+
+async function membersPage() {
+  app.innerHTML = '<h1>Membres</h1><p class="mute">Chargement…</p>';
+  const [us, mine] = await Promise.all([allUsers(true), db.collection('follows').where('from', '==', user.uid).get()]);
+  let fol = new Set(mine.docs.map(d => d.data().to)), q = '';
+  const list = Object.values(us).filter(u => !u.blocked && u.uid !== user.uid).sort((a, b) => (isOnline(b.seen) ? 1 : 0) - (isOnline(a.seen) ? 1 : 0) || (b.seen || 0) - (a.seen || 0));
+  const draw = () => {
+    const r = list.filter(u => (u.name || '').toLowerCase().includes(q));
+    $('#ml').innerHTML = r.length ? r.map(u => memRow(u, user.uid, fol)).join('') : '<p class="mute">Personne trouvé.</p>';
+    wireFollow($('#ml'), async () => { const m = await db.collection('follows').where('from', '==', user.uid).get(); fol = new Set(m.docs.map(d => d.data().to)); draw(); });
+  };
+  app.innerHTML = '<h1>Membres</h1><input id="mq" type="search" placeholder="Rechercher un nom…" aria-label="Rechercher"><div id="ml" style="margin-top:8px"></div>';
+  $('#mq').oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
+  draw();
+}
+
+function readPhoto(file) {
+  return new Promise((ok, ko) => {
+    if (!file || !/^image\//.test(file.type)) return ko(new Error('Choisis une image.'));
+    const fr = new FileReader();
+    fr.onerror = () => ko(new Error('Lecture impossible.'));
+    fr.onload = () => {
+      const im = new Image();
+      im.onerror = () => ko(new Error('Image non lisible.'));
+      im.onload = () => {
+        const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+        const k = Math.max(S / im.width, S / im.height), w = im.width * k, h = im.height * k;
+        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, S, S); x.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);
+        ok(c.toDataURL('image/jpeg', .82));
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+async function profilePage(uid) {
+  uid = uid || user.uid;
+  const self = uid === user.uid;
+  app.innerHTML = '<p class="mute">Chargement…</p>';
+  const [ud, fr, fg, users] = await Promise.all([db.collection('users').doc(uid).get(), db.collection('follows').where('to', '==', uid).get(), db.collection('follows').where('from', '==', uid).get(), allUsers(true)]);
+  if (!ud.exists) { app.innerHTML = '<h1>Profil introuvable</h1><a class="btn alt" href="#/membres">Voir les membres</a>'; return; }
+  const u = {uid, ...ud.data()}; if (self) myProf = ud.data();
+  const followers = fr.docs.map(d => d.data()).sort((a, b) => b.at - a.at).map(f => users[f.from]).filter(Boolean);
+  const following = fg.docs.map(d => d.data()).sort((a, b) => b.at - a.at).map(f => users[f.to]).filter(Boolean);
+  const iFollow = fr.docs.some(d => d.data().from === user.uid);
+  const myFol = new Set((await db.collection('follows').where('from', '==', user.uid).get()).docs.map(d => d.data().to));
+  let tab = 'followers';
+  app.innerHTML = `<p style="margin:0"><a class="link" href="#/plus" style="padding-left:0">← Compte</a></p>
+    <div class="ph">${av(u, 'xl')}<div style="min-width:0"><h1>${esc(u.name || 'Sans nom')}</h1><span class="mute ${isOnline(u.seen) || self ? 'on-t' : ''}">${lastSeen(u.seen, self)}</span></div></div>
+    ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : ''}
+    <p class="row" style="margin:0 0 6px">${self ? '<button id="ed">Modifier le profil</button>' : fbtn(uid, iFollow).replace('class="fb', 'style="min-height:46px" class="fb')}${self ? '' : ''}</p>
+    ${self ? `<div class="card" id="edbox" hidden>
+      <label>Photo de profil</label>
+      <div class="row nowrap" style="align-items:center"><span id="edav">${av(u)}</span><input id="edf" type="file" accept="image/*"><button class="alt" id="edrm" type="button" style="flex:none">Retirer</button></div>
+      <label for="edn">Nom affiché</label><input id="edn" maxlength="30" value="${esc(u.name || '')}">
+      <label for="edb">Bio</label><textarea id="edb" rows="2" maxlength="140" placeholder="Objectif, salle, programme…">${esc(u.bio || '')}</textarea>
+      <p id="eder" class="err" hidden></p>
+      <p class="row" style="margin:14px 0 0"><button id="eds">Enregistrer</button><button class="alt" id="edc" type="button">Annuler</button></p></div>` : ''}
+    <div class="stats s3"><div class="stat"><b>${followers.length}</b><span>Abonné${followers.length > 1 ? 's' : ''}</span></div><div class="stat"><b>${following.length}</b><span>Abonnement${following.length > 1 ? 's' : ''}</span></div><div class="stat"><b>${u.seen ? new Date(u.seen).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'}) : '–'}</b><span>Dernière activité</span></div></div>
+    <div class="seg" id="tabs"><a href="#" data-t="followers" class="on">Abonnés</a><a href="#" data-t="following">Abonnements</a></div><div id="plist"></div>`;
+  const drawList = () => {
+    const l = tab === 'followers' ? followers : following;
+    $('#plist').innerHTML = l.length ? l.map(x => memRow(x, user.uid, myFol)).join('') : `<p class="mute">${tab === 'followers' ? 'Aucun abonné pour le moment.' : 'Ne suit personne pour le moment.'}</p>`;
+    wireFollow($('#plist'), () => profilePage(uid));
+  };
+  $('#tabs').querySelectorAll('a').forEach(a => a.onclick = e => { e.preventDefault(); tab = a.dataset.t; $('#tabs').querySelectorAll('a').forEach(x => x.classList.toggle('on', x === a)); drawList(); });
+  drawList();
+  if (!self) { wireFollow(app.querySelector('.row'), () => profilePage(uid)); return; }
+  let photo = u.photo || '';
+  $('#ed').onclick = () => { $('#edbox').hidden = false; $('#ed').hidden = true; };
+  $('#edc').onclick = () => profilePage(uid);
+  $('#edrm').onclick = () => { photo = ''; $('#edav').innerHTML = av({...u, photo: ''}); };
+  $('#edf').onchange = async e => {
+    const er = $('#eder'); er.hidden = true;
+    try { photo = await readPhoto(e.target.files[0]); $('#edav').innerHTML = av({...u, photo}); } catch (x) { er.textContent = x.message; er.hidden = false; }
+  };
+  $('#eds').onclick = async () => {
+    const b = $('#eds'), er = $('#eder'), name = $('#edn').value.trim();
+    if (!name) { er.textContent = 'Le nom ne peut pas être vide.'; er.hidden = false; return; }
+    b.disabled = true;
+    try {
+      const data = {name, bio: $('#edb').value.trim().slice(0, 140), photo: photo || firebase.firestore.FieldValue.delete()};
+      await db.collection('users').doc(uid).update(data);
+      myProf = {...myProf, name, bio: data.bio, photo}; if (!photo) delete myProf.photo;
+      ucache = null; setWho(); profilePage(uid);
+    } catch (x) { er.textContent = 'Erreur : ' + x.message; er.hidden = false; b.disabled = false; }
+  };
+}
+
+// ----- Poids (+ import Basic-Fit) -----
+function parseWeights(txt) {
+  const out = [];
+  txt.split(/\r?\n/).forEach(line => {
+    let date = null, rest = line;
+    let m = /(\d{4})-(\d{2})-(\d{2})/.exec(line);
+    if (m) { date = m[0]; rest = line.replace(m[0], ' '); }
+    else if ((m = /(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/.exec(line))) { date = `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`; rest = line.replace(m[0], ' '); }
+    if (!date) return;
+    const n = /(\d{2,3}(?:[.,]\d{1,2})?)/.exec(rest); if (!n) return;
+    const kg = parseFloat(n[1].replace(',', '.'));
+    if (kg >= 20 && kg <= 300 && !isNaN(new Date(date + 'T12:00'))) out.push({date, kg});
+  });
+  return out;
+}
+async function weightPage() {
+  const col = db.collection('weights');
+  let rows = [];
+  const load = async () => { rows = (await col.where('uid', '==', user.uid).get()).docs.map(d => ({id: d.id, ...d.data()})).sort((a, b) => a.date < b.date ? -1 : 1); };
+  const draw = () => {
+    const last = rows[rows.length - 1], first = rows[0], diff = last ? last.kg - first.kg : 0;
+    $('#wbody').innerHTML = rows.length ? `<div class="stats s3"><div class="stat"><b>${fmtNum(last.kg)}</b><span>Poids actuel (kg)</span></div><div class="stat"><b>${rows.length > 1 ? (diff > 0 ? '+' : '') + fmtNum(diff) : '–'}</b><span>Évolution (kg)</span></div><div class="stat"><b>${rows.length}</b><span>Pesée${rows.length > 1 ? 's' : ''}</span></div></div>
+      <div class="card">${lineChart(rows.map(r => ({date: r.date, num: r.kg})), true)}</div>
+      <h2>Historique</h2><div class="card">${[...rows].reverse().slice(0, 30).map(r => `<div class="wrow"><span><b>${fmtNum(r.kg)} kg</b><br><span class="mute">${esc(fmt(r.date))}${r.src === 'basicfit' ? ' · Basic-Fit' : ''}</span></span><button class="x" data-d="${esc(r.id)}">Supprimer</button></div>`).join('')}</div>` : '<p class="mute">Ajoute ta première pesée pour voir la courbe.</p>';
+    $('#wbody').querySelectorAll('[data-d]').forEach(b => b.onclick = async () => { if (!confirm('Supprimer cette pesée ?')) return; await col.doc(b.dataset.d).delete(); await load(); draw(); });
+  };
+  app.innerHTML = `<h1>Mon poids</h1><p class="mute">Visible par toi uniquement.</p>
+    <div class="card"><div class="row"><div><label for="wd">Date</label><input id="wd" type="date" value="${today()}" max="${today()}"></div><div><label for="wk">Poids (kg)</label><input id="wk" inputmode="decimal" placeholder="ex. 78,5"></div></div>
+    <label for="ws">Source</label><select id="ws"><option value="manual">Saisie manuelle</option><option value="basicfit">Basic-Fit</option></select>
+    <p id="wer" class="err" hidden></p><p style="margin:14px 0 0"><button id="wsv" style="width:100%">Enregistrer la pesée</button></p></div>
+    <div id="wbody"><p class="mute">Chargement…</p></div>
+    <div class="card bfc"><b>Basic-Fit</b><p class="mute" style="margin:6px 0 12px">Basic-Fit ne propose pas de connexion directe avec d’autres applis. Ouvre ton appli Basic-Fit, copie tes pesées (une par ligne, ex. <i>12/10/2025 80,4</i>) et colle-les ici : elles seront importées et marquées « Basic-Fit ».</p>
+    <textarea id="bfi" rows="4" placeholder="12/10/2025 80,4&#10;2025-10-19 80,1"></textarea>
+    <p id="bfm" class="tag" hidden></p><p class="row" style="margin:12px 0 0"><button id="bfg">Importer</button><a class="btn alt" href="https://www.basic-fit.com/fr-fr/" target="_blank" rel="noopener noreferrer">Ouvrir Basic-Fit</a></p></div>`;
+  $('#wsv').onclick = async () => {
+    const er = $('#wer'), d = $('#wd').value, kg = parseFloat($('#wk').value.replace(',', '.'));
+    er.hidden = true;
+    if (!d || !(kg >= 20 && kg <= 300)) { er.textContent = 'Entre une date et un poids entre 20 et 300 kg.'; er.hidden = false; return; }
+    const b = $('#wsv'); b.disabled = true;
+    try { await col.doc(user.uid + '_' + d).set({uid: user.uid, date: d, kg: Math.round(kg * 10) / 10, src: $('#ws').value, at: Date.now()}); $('#wk').value = ''; await load(); draw(); }
+    catch (e) { er.textContent = 'Erreur : ' + e.message; er.hidden = false; }
+    b.disabled = false;
+  };
+  $('#bfg').onclick = async () => {
+    const m = $('#bfm'), list = parseWeights($('#bfi').value);
+    m.hidden = false; m.className = list.length ? 'tag' : 'err';
+    if (!list.length) { m.textContent = 'Aucune pesée reconnue. Format : date puis poids, une par ligne.'; return; }
+    const b = $('#bfg'); b.disabled = true;
+    try {
+      const bt = db.batch(); list.slice(0, 400).forEach(r => bt.set(col.doc(user.uid + '_' + r.date), {uid: user.uid, date: r.date, kg: Math.round(r.kg * 10) / 10, src: 'basicfit', at: Date.now()}));
+      await bt.commit(); m.textContent = list.length + ' pesée(s) importée(s).'; $('#bfi').value = ''; await load(); draw();
+    } catch (e) { m.className = 'err'; m.textContent = 'Erreur : ' + e.message; }
+    b.disabled = false;
+  };
+  await load(); draw();
 }
 </script>
 </body>
