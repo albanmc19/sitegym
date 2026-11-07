@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com; frame-src https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.spotify.com https://accounts.spotify.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com; frame-src https://open.spotify.com https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <script>if(self!==top){document.documentElement.style.display='none';try{top.location=self.location}catch(e){}}</script>
 <meta name="theme-color" content="#0c1222">
@@ -168,10 +168,28 @@ details.act summary::-webkit-details-marker{display:none}
 details.act[open] summary{margin-bottom:8px}
 .act .it{padding:12px 0;border-top:1px solid var(--line);font-size:15px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.chips button{min-height:36px;padding:6px 12px;border-radius:99px;font-size:14px}
+#who,#out{display:none!important}
+#me{width:38px;height:38px;border-radius:12px;background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc);font:800 18px var(--hf);display:grid;place-items:center;text-decoration:none;margin-left:auto}
+#me[hidden]{display:none}
+.sp{display:flex;gap:16px;align-items:center}
+.sp img{width:96px;height:96px;border-radius:14px;object-fit:cover;flex:none;background:var(--soft)}
+.spi{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.spi b{font:700 20px var(--hf);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctl{display:flex;gap:8px;margin-top:6px}.ctl button{flex:1;min-height:46px;font-size:20px;padding:6px}
+.vol{font-size:13px;font-weight:500;color:var(--mute);margin:8px 0 0}
+.spi input[type=range]{padding:0;height:28px;background:none;border:0;accent-color:var(--acc)}
+.pls{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.pl{padding:0;background:var(--card);color:var(--ink);border:1px solid var(--line);text-align:left;overflow:hidden;border-radius:14px}
+.pl img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--soft)}
+.pl span{display:block;padding:8px 10px;font-weight:600;font-size:14px;line-height:1.3}
+.tr{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.tr img{width:44px;height:44px;border-radius:8px;flex:none;background:var(--soft)}
+.tr div{flex:1;min-width:0}.tr button{min-height:42px;padding:6px 14px}
+@media(max-width:600px){#me{margin-left:auto}.sp img{width:80px;height:80px}}
 </style>
 </head>
 <body>
-<header><b>SÉANCES</b><nav id="nav"></nav><span id="who" class="mute"></span><button class="alt" id="out" hidden>Quitter</button></header>
+<header><b>SÉANCES</b><nav id="nav"></nav><span id="who" class="mute"></span><a id="me" href="#/plus" hidden aria-label="Mon compte"></a><button class="alt" id="out" hidden>Quitter</button></header>
 <main id="app"></main>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -206,7 +224,7 @@ const DEFAULTS = ['Développé couché prise contre pecs','Chest press (pecs)','
 let user = null, isAdmin = false, pending = null, flash = '';
 
 const nm = u => u.displayName || (u.email || '').split('@')[0];
-function setWho() { $('#who').textContent = user ? nm(user).split(' ')[0] + (isAdmin ? ' (admin)' : '') : ''; }
+function setWho() { $('#who').textContent = user ? nm(user).split(' ')[0] + (isAdmin ? ' (admin)' : '') : ''; const m = $('#me'); if (m) { m.hidden = !user; m.textContent = user ? (nm(user)[0] || '?').toUpperCase() : ''; } }
 auth.onAuthStateChanged(async u => {
   pending = null; user = null; isAdmin = false;
   if (u) {
@@ -226,6 +244,7 @@ $('#out').onclick = () => { stopRest(); auth.signOut(); };
 addEventListener('hashchange', route);
 
 const ICO = {
+  music: '<path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>',
   home: '<path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   chart: '<path d="M3 3v18h18M7 15l4-4 3 3 5-6"/>',
@@ -239,8 +258,7 @@ let unread = 0, unsub = null, pageUnsub = null;
 function nav() {
   document.title = (unread ? `(${unread}) ` : '') + 'Séances';
   const h = location.hash || '#/';
-  const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/']], ['#/progres', 'chart', 'Progrès', ['#/progres']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
-  if (isAdmin) l.push(['#/activite', 'users', 'Activité', ['#/activite']], ['#/admin', 'pen', 'Gérer', ['#/admin', '#/inscrits']]);
+  const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/']], ['#/progres', 'chart', 'Progrès', ['#/progres']], ['#/musique', 'music', 'Musique', ['#/musique']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
   $('#nav').innerHTML = user ? l.map(([a, i, t, m]) => `<a href="${a}" class="${(a === '#/' ? h === '#/' : m.some(p => h.startsWith(p))) ? 'on' : ''}">${icon(i)}<span>${t}</span>${a === '#/messages' && unread ? `<span class="bd">${unread}</span>` : ''}</a>`).join('') : '';
 }
 function watchMsgs() {
@@ -359,6 +377,127 @@ async function listSessions() {
   $('#sq').oninput = draw; draw();
 }
 
+// ----- Spotify : mets ici ton Client ID (developer.spotify.com/dashboard) -----
+const SPOTIFY_CLIENT_ID = 'd18da7882f1f4d4590c5237f1343ef58';
+const SP = {id: SPOTIFY_CLIENT_ID, scope: 'user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private', redir: () => location.origin + location.pathname};
+const spGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const spSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const rnd = n => b64(crypto.getRandomValues(new Uint8Array(n)));
+async function spLogin() {
+  const v = rnd(48), st = rnd(12);
+  spSet('sp_v', {v, st});
+  const ch = b64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
+  location.href = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({client_id: SP.id, response_type: 'code', redirect_uri: SP.redir(), scope: SP.scope, code_challenge_method: 'S256', code_challenge: ch, state: st});
+}
+async function spToken(body) {
+  const r = await fetch('https://accounts.spotify.com/api/token', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams({client_id: SP.id, ...body})});
+  const j = await r.json(); if (!r.ok) throw new Error(j.error_description || 'Erreur Spotify');
+  const t = {a: j.access_token, r: j.refresh_token || (spGet('sp_t') || {}).r, e: Date.now() + j.expires_in * 1000 - 60000};
+  spSet('sp_t', t); return t;
+}
+async function spAuth() {
+  let t = spGet('sp_t'); if (!t) return null;
+  if (Date.now() > t.e) { try { t = await spToken({grant_type: 'refresh_token', refresh_token: t.r}); } catch (e) { spSet('sp_t', null); return null; } }
+  return t.a;
+}
+async function spApi(path, opt = {}) {
+  const a = await spAuth(); if (!a) throw new Error('auth');
+  const r = await fetch('https://api.spotify.com/v1' + path, {method: opt.method || 'GET', headers: {Authorization: 'Bearer ' + a, ...(opt.body ? {'Content-Type': 'application/json'} : {})}, body: opt.body ? JSON.stringify(opt.body) : undefined});
+  if (r.status === 204 || r.status === 202) return null;
+  const j = await r.json().catch(() => null);
+  if (!r.ok) { const e = new Error((j && j.error && j.error.message) || 'Spotify ' + r.status); e.status = r.status; throw e; }
+  return j;
+}
+(async () => {
+  const q = new URLSearchParams(location.search), c = q.get('code'); if (!c || !SP.id) return;
+  const s = spGet('sp_v'); history.replaceState(null, '', location.pathname + '#/musique');
+  if (!s || s.st !== q.get('state')) return; spSet('sp_v', null);
+  try { await spToken({grant_type: 'authorization_code', code: c, redirect_uri: SP.redir(), code_verifier: s.v}); } catch (e) { alert(e.message); }
+  if (user) route();
+})();
+
+async function musicPage() {
+  const on = !!SP.id, tok = on && await spAuth();
+  app.innerHTML = `<h1>Musique</h1><p id="sperr" class="err" role="alert" hidden></p>
+  ${!on ? '<div class="card"><b>Pilotage Spotify non configuré</b><p class="mute">Ajoute ton Client ID Spotify dans le code pour contrôler la lecture ici. En attendant, enregistre des playlists ci-dessous.</p></div>'
+   : tok ? '<div id="spbox"></div><div id="spdev"></div><h2>Mes playlists</h2><div id="splists" class="pls"></div><h2>Rechercher</h2><input id="spq" type="search" placeholder="Titre, artiste…" aria-label="Rechercher un titre"><div id="spres"></div><p><button class="link" id="spout">Déconnecter Spotify</button></p>'
+   : '<div class="card"><b>Connecte ton Spotify</b><p class="mute">Pilote la lecture depuis ici (Spotify Premium requis). Ouvre d’abord Spotify sur un appareil.</p><button id="spc" style="width:100%">Se connecter à Spotify</button></div>'}
+  <h2>Playlists enregistrées</h2><div class="row nowrap"><input id="spu" placeholder="Colle un lien Spotify" aria-label="Lien Spotify" inputmode="url"><button id="spadd" style="flex:none">Ajouter</button></div><div id="spemb" style="margin-top:8px"></div>`;
+  const spErr = e => {
+    if (e.message === 'auth') return musicPage();
+    const m = e.status === 403 ? 'Cette action demande un compte Spotify Premium.' : e.status === 404 ? 'Aucun appareil actif : ouvre Spotify sur ton téléphone ou ordinateur, puis réessaie.' : e.message;
+    const el = $('#sperr'); if (el) { el.textContent = m; el.hidden = false; }
+  };
+  const embs = () => spGet('sp_emb') || [];
+  const drawEmb = () => {
+    $('#spemb').innerHTML = embs().map((x, i) => `<div class="card" style="padding:10px"><iframe title="Spotify" src="https://open.spotify.com/embed/${x.t}/${x.id}" width="100%" height="${x.t === 'playlist' || x.t === 'album' ? 352 : 152}" style="border:0;border-radius:12px" allow="encrypted-media" loading="lazy"></iframe><p style="margin:8px 0 0"><button class="del" data-e="${i}">Retirer</button></p></div>`).join('') || '<p class="mute">Colle un lien de playlist, album ou titre pour le retrouver ici.</p>';
+    $('#spemb').querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const l = embs(); l.splice(+b.dataset.e, 1); spSet('sp_emb', l); drawEmb(); });
+  };
+  $('#spadd').onclick = () => {
+    const m = /^https:\/\/open\.spotify\.com\/(?:intl-[a-z]+\/)?(playlist|album|track|artist)\/([A-Za-z0-9]{22})/.exec($('#spu').value.trim());
+    if (!m) return spErr({message: 'Lien Spotify invalide (playlist, album, titre ou artiste).'});
+    const l = embs(); if (!l.some(x => x.id === m[2])) l.push({t: m[1], id: m[2]}); spSet('sp_emb', l.slice(-12)); $('#spu').value = ''; drawEmb();
+  };
+  drawEmb();
+  if ($('#spc')) $('#spc').onclick = spLogin;
+  if (!tok) return;
+  let cur = null, key = '';
+  const play = async body => { const d = $('#spd') && $('#spd').value; try { await spApi('/me/player/play' + (d ? '?device_id=' + encodeURIComponent(d) : ''), {method: 'PUT', body}); setTimeout(refresh, 600); } catch (e) { spErr(e); } };
+  const act = async a => { try { if (a === 'pp') await spApi(cur && cur.is_playing ? '/me/player/pause' : '/me/player/play', {method: 'PUT'}); else await spApi('/me/player/' + (a === 'next' ? 'next' : 'previous'), {method: 'POST'}); setTimeout(refresh, 500); } catch (e) { spErr(e); } };
+  const drawP = st => {
+    const it = st && st.item, box = $('#spbox'); if (!box) return;
+    if (!it) { box.innerHTML = '<div class="card"><b>Rien en lecture</b><p class="mute">Choisis un appareil ci-dessous, puis une playlist.</p></div>'; return; }
+    const img = (it.album ? it.album.images : it.images) || [], who = it.artists ? it.artists.map(a => a.name).join(', ') : (it.show ? it.show.name : '');
+    box.innerHTML = `<div class="card sp"><img src="${esc((img[1] || img[0] || {}).url || '')}" alt=""><div class="spi"><b>${esc(it.name)}</b><span class="mute">${esc(who)}</span><div class="bar"><i style="width:${Math.min(100, st.progress_ms / it.duration_ms * 100)}%"></i></div>
+      <div class="ctl"><button class="alt" data-a="prev" aria-label="Précédent">⏮</button><button data-a="pp" aria-label="${st.is_playing ? 'Pause' : 'Lecture'}">${st.is_playing ? '⏸' : '▶'}</button><button class="alt" data-a="next" aria-label="Suivant">⏭</button></div>
+      <label class="vol" for="vol">Volume · ${esc(st.device ? st.device.name : '')}</label><input type="range" id="vol" min="0" max="100" value="${st.device ? st.device.volume_percent || 0 : 50}"></div></div>`;
+    box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => act(b.dataset.a));
+    $('#vol').onchange = e => spApi('/me/player/volume?volume_percent=' + e.target.value, {method: 'PUT'}).catch(spErr);
+  };
+  const refresh = async () => {
+    try { cur = await spApi('/me/player'); } catch (e) { return spErr(e); }
+    if (!$('#spbox')) return;
+    const it = cur && cur.item, k = it ? it.id + cur.is_playing : '';
+    if (k !== key) { key = k; drawP(cur); } else if (it) { const i = $('#spbox .bar i'); if (i) i.style.width = Math.min(100, cur.progress_ms / it.duration_ms * 100) + '%'; }
+  };
+  const devs = async () => {
+    try {
+      const d = (await spApi('/me/player/devices')).devices;
+      $('#spdev').innerHTML = d.length ? `<label for="spd">Appareil</label><select id="spd">${d.map(x => `<option value="${esc(x.id)}" ${x.is_active ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="link" id="spr">Actualiser</button>` : '<p class="mute">Aucun appareil détecté. Ouvre l’appli Spotify, puis <button class="link" id="spr">actualise</button>.</p>';
+      $('#spr').onclick = devs;
+      if ($('#spd')) $('#spd').onchange = e => spApi('/me/player', {method: 'PUT', body: {device_ids: [e.target.value], play: true}}).then(() => setTimeout(refresh, 600)).catch(spErr);
+    } catch (e) { spErr(e); }
+  };
+  spApi('/me/playlists?limit=30').then(r => {
+    $('#splists').innerHTML = r.items.filter(Boolean).map(p => `<button class="pl" data-u="${esc(p.uri)}"><img src="${esc((p.images && p.images[0] || {}).url || '')}" alt="" loading="lazy"><span>${esc(p.name)}</span></button>`).join('') || '<p class="mute">Aucune playlist.</p>';
+    $('#splists').querySelectorAll('[data-u]').forEach(b => b.onclick = () => play({context_uri: b.dataset.u}));
+  }).catch(spErr);
+  let tm; $('#spq').oninput = e => {
+    clearTimeout(tm); const q = e.target.value.trim();
+    tm = setTimeout(async () => {
+      if (!q) { $('#spres').innerHTML = ''; return; }
+      try {
+        const r = await spApi('/search?type=track&limit=8&q=' + encodeURIComponent(q));
+        $('#spres').innerHTML = r.tracks.items.map(t => `<div class="tr"><img src="${esc((t.album.images[2] || t.album.images[0] || {}).url || '')}" alt=""><div><b>${esc(t.name)}</b><br><span class="mute">${esc(t.artists.map(a => a.name).join(', '))}</span></div><button class="alt" data-q="${esc(t.uri)}" aria-label="Ajouter à la file">+</button><button data-p="${esc(t.uri)}" aria-label="Lire">▶</button></div>`).join('') || '<p class="mute">Aucun résultat.</p>';
+        $('#spres').querySelectorAll('[data-p]').forEach(b => b.onclick = () => play({uris: [b.dataset.p]}));
+        $('#spres').querySelectorAll('[data-q]').forEach(b => b.onclick = () => spApi('/me/player/queue?uri=' + encodeURIComponent(b.dataset.q), {method: 'POST'}).then(() => { b.textContent = '✓'; }).catch(spErr));
+      } catch (er) { spErr(er); }
+    }, 400);
+  };
+  $('#spout').onclick = () => { spSet('sp_t', null); musicPage(); };
+  await refresh(); devs();
+  const iv = setInterval(refresh, 5000); pageUnsub = () => clearInterval(iv);
+}
+
+async function plusPage() {
+  const row = (h, t, sub) => `<a class="card item" href="${h}"><span><b>${t}</b><br><span class="mute">${sub}</span></span><span class="mute">›</span></a>`;
+  app.innerHTML = `<h1>${esc(nm(user))}</h1><p class="mute">${esc(user.email)}${isAdmin ? ' · administrateur' : ''}</p>
+  ${isAdmin ? '<h2>Administration</h2>' + row('#/activite', 'Activité', 'Ce que font les inscrits') + row('#/admin', 'Gérer les séances', 'Créer, modifier, copier') + row('#/inscrits', 'Inscrits', 'Bloquer, supprimer, écrire') : ''}
+  <h2>Compte</h2><button id="lo" class="alt" style="width:100%">Se déconnecter</button>`;
+  $('#lo').onclick = () => { stopRest(); auth.signOut(); };
+}
+
 async function route() {
   if (pageUnsub) { pageUnsub(); pageUnsub = null; }
   if (wl) { wl.release().catch(() => {}); wl = null; }
@@ -406,6 +545,8 @@ async function route() {
   const [, page, id, extra] = (location.hash || '#/').split('/');
   try {
     if (page === 'seance') return await viewSession(id);
+    if (page === 'musique') return await musicPage();
+    if (page === 'plus') return await plusPage();
     if (page === 'calendrier') return await calendarPage();
     if (page === 'activite' && isAdmin) return await activityPage(id);
     if (page === 'inscrits' && isAdmin) return await usersPage();
