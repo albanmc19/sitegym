@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Séances</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#eef0f3;--card:#fff;--ink:#14181f;--mute:#5d6673;--line:#d5d9e0;--acc:#1f4bff;--acc-ink:#fff;--ok:#12805c}
+@media(prefers-color-scheme:dark){:root{--bg:#10141b;--card:#1a202a;--ink:#eef1f6;--mute:#98a2b3;--line:#2c3441;--acc:#6f8cff;--acc-ink:#0a0f1c;--ok:#4fd1a1}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Barlow,system-ui,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:2px solid var(--ink);background:var(--card);flex-wrap:wrap}
+header b{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:.02em;margin-right:auto}
+nav a,.link{color:var(--ink);text-decoration:none;font-weight:600;padding:4px 2px;border-bottom:2px solid transparent;cursor:pointer;background:none;border-top:0;border-left:0;border-right:0;font-family:inherit;font-size:inherit}
+nav a:hover,nav a.on{border-color:var(--acc)}
+main{max-width:720px;margin:0 auto;padding:24px 16px 80px}
+h1{font:800 clamp(36px,8vw,56px)/1 'Barlow Condensed',sans-serif;margin:8px 0 6px}
+h2{font:800 24px 'Barlow Condensed',sans-serif;margin:28px 0 8px}
+.mute{color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px;margin:12px 0}
+.ex{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
+.ex:first-child{border-top:0}
+.ex input[type=checkbox]{width:26px;height:26px;accent-color:var(--acc);flex:none;margin-top:2px}
+.ex.done .nm{text-decoration:line-through;color:var(--mute)}
+.nm{font-weight:600;font-size:18px}
+button,.btn{font:600 16px Barlow,sans-serif;background:var(--acc);color:var(--acc-ink);border:0;border-radius:4px;padding:10px 18px;cursor:pointer;text-decoration:none;display:inline-block}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+button.del{background:transparent;color:#c0322b;border:1px solid #c0322b;padding:6px 12px}
+input,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:9px;width:100%}
+label{display:block;font-weight:600;margin:12px 0 4px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 90px}
+.item{display:flex;justify-content:space-between;gap:12px;align-items:center;text-decoration:none;color:inherit}
+.tag{font-size:14px;font-weight:600;color:var(--ok)}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+#login{text-align:center;padding-top:15vh}
+</style>
+</head>
+<body>
+<header><b>SÉANCES</b><nav id="nav"></nav><span id="who" class="mute"></span><button class="alt" id="out" hidden>Quitter</button></header>
+<main id="app"></main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+// ====== À REMPLIR ======
+const firebaseConfig = {
+  apiKey: "REMPLACE_MOI",
+  authDomain: "REMPLACE_MOI.firebaseapp.com",
+  projectId: "REMPLACE_MOI",
+  appId: "REMPLACE_MOI"
+};
+const ADMIN_EMAIL = "ton.email@gmail.com"; // ton compte Google = admin
+// =======================
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth(), db = firebase.firestore();
+const $ = s => document.querySelector(s), app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today = () => new Date().toISOString().slice(0, 10);
+const fmt = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
+let user = null, isAdmin = false;
+
+auth.onAuthStateChanged(u => {
+  user = u; isAdmin = !!u && u.email === ADMIN_EMAIL;
+  $('#out').hidden = !u; $('#who').textContent = u ? u.displayName.split(' ')[0] : '';
+  route();
+});
+$('#out').onclick = () => auth.signOut();
+addEventListener('hashchange', route);
+
+function nav() {
+  const h = location.hash || '#/';
+  const l = [['#/', "Aujourd'hui"], ['#/seances', 'Toutes les séances']];
+  if (isAdmin) l.push(['#/admin', 'Ajouter']);
+  $('#nav').innerHTML = user ? l.map(([a, t]) => `<a href="${a}" class="${h === a ? 'on' : ''}">${t}</a>`).join('') : '';
+}
+
+async function route() {
+  nav();
+  if (!user) {
+    app.innerHTML = `<div id="login"><h1>Séance du jour</h1><p class="mute">Connecte-toi pour voir le programme.</p><button id="g">Se connecter avec Google</button></div>`;
+    $('#g').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => alert(e.message));
+    return;
+  }
+  const [, page, id] = (location.hash || '#/').split('/');
+  try {
+    if (page === 'seance') return await viewSession(id);
+    if (page === 'seances') return await listSessions();
+    if (page === 'admin' && isAdmin) return await editSession(id);
+    return await home();
+  } catch (e) { app.innerHTML = `<div class="card">Erreur : ${esc(e.message)}</div>`; }
+}
+
+async function all() {
+  const s = await db.collection('sessions').orderBy('date', 'desc').get();
+  return s.docs.map(d => ({id: d.id, ...d.data()}));
+}
+
+async function home() {
+  const list = await all();
+  const t = today();
+  const s = list.find(x => x.date === t) || [...list].reverse().find(x => x.date > t) || list[0];
+  if (!s) { app.innerHTML = `<h1>Rien de prévu</h1><p class="mute">Aucune séance pour le moment.</p>`; return; }
+  return viewSession(s.id, s.date === t ? "Aujourd'hui" : s.date > t ? 'Prochaine séance' : 'Dernière séance');
+}
+
+async function listSessions() {
+  const list = await all();
+  app.innerHTML = `<h1>Toutes les séances</h1>` + (list.length ? list.map(s =>
+    `<a class="card item" href="#/seance/${s.id}"><span><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span></span></a>`).join('')
+    : `<p class="mute">Aucune séance.</p>`);
+}
+
+async function viewSession(id, label) {
+  const doc = await db.collection('sessions').doc(id).get();
+  if (!doc.exists) { app.innerHTML = '<h1>Séance introuvable</h1>'; return; }
+  const s = doc.data();
+  const logRef = db.collection('logs').doc(id + '_' + user.uid);
+  const mine = (await logRef.get()).data() || {done: {}, note: ''};
+  const render = () => {
+    const n = Object.values(mine.done).filter(Boolean).length;
+    app.innerHTML = `<p class="mute">${label || fmt(s.date)}</p><h1>${esc(s.title)}</h1>
+    <p class="mute">${label ? fmt(s.date) + ' · ' : ''}${n}/${s.exercises.length} exercices faits</p>
+    <div class="card">${s.exercises.map((e, i) => `<label class="ex ${mine.done[i] ? 'done' : ''}" style="margin:0"><input type="checkbox" data-i="${i}" ${mine.done[i] ? 'checked' : ''}>
+      <span><span class="nm">${esc(e.name)}</span><br><span class="mute">${esc([e.sets && e.sets + ' séries', e.reps && e.reps + ' reps', e.notes].filter(Boolean).join(' · '))}</span></span></label>`).join('')}</div>
+    <label for="note">Mon ressenti / charges utilisées</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
+    <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
+    ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p><a class="btn alt" style="background:none;color:var(--ink);border:1px solid var(--ink)" href="#/admin/${id}">Modifier</a> <button class="del" id="del">Supprimer</button></p>` : ''}`;
+    app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; save(false); });
+    $('#save').onclick = () => save(true);
+    if (isAdmin) {
+      $('#del').onclick = async () => { if (confirm('Supprimer cette séance ?')) { await db.collection('sessions').doc(id).delete(); location.hash = '#/seances'; } };
+      db.collection('logs').where('sessionId', '==', id).get().then(q => {
+        $('#track').innerHTML = q.empty ? 'Personne n’a encore validé d’exercice.' : q.docs.map(d => {
+          const l = d.data(); const ok = s.exercises.filter((_, i) => l.done && l.done[i]);
+          return `<div class="card"><b>${esc(l.name)}</b> : ${ok.length}/${s.exercises.length}<br>${ok.map(e => '✓ ' + esc(e.name)).join('<br>') || '<span class="mute">rien de coché</span>'}${l.note ? `<br><i>« ${esc(l.note)} »</i>` : ''}</div>`;
+        }).join('');
+      });
+    }
+  };
+  async function save(manual) {
+    mine.note = $('#note') ? $('#note').value : mine.note;
+    await logRef.set({uid: user.uid, name: user.displayName, sessionId: id, done: mine.done, note: mine.note, updatedAt: Date.now()});
+    if (manual) { $('#ok').textContent = 'Enregistré'; } else render();
+  }
+  render();
+}
+
+async function editSession(id) {
+  let s = {title: '', date: today(), exercises: [{name: '', sets: '', reps: '', notes: ''}]};
+  if (id) { const d = await db.collection('sessions').doc(id).get(); if (d.exists) s = d.data(); }
+  const draw = () => {
+    app.innerHTML = `<h1>${id ? 'Modifier' : 'Nouvelle'} séance</h1>
+    <label for="t">Titre</label><input id="t" value="${esc(s.title)}" placeholder="Pecs / triceps">
+    <label for="d">Date</label><input id="d" type="date" value="${s.date}">
+    <h2>Exercices</h2>${s.exercises.map((e, i) => `<div class="card"><input data-i="${i}" data-k="name" value="${esc(e.name)}" placeholder="Développé couché">
+      <div class="row" style="margin-top:8px"><input data-i="${i}" data-k="sets" value="${esc(e.sets)}" placeholder="Séries"><input data-i="${i}" data-k="reps" value="${esc(e.reps)}" placeholder="Reps"><input data-i="${i}" data-k="notes" value="${esc(e.notes)}" placeholder="Note"></div>
+      <p style="margin:8px 0 0"><button class="link" data-rm="${i}">Retirer</button></p></div>`).join('')}
+    <p><button class="alt" id="add">+ Exercice</button> <button id="sv">Enregistrer la séance</button></p>`;
+    const read = () => { s.title = $('#t').value; s.date = $('#d').value; app.querySelectorAll('[data-k]').forEach(i => s.exercises[i.dataset.i][i.dataset.k] = i.value); };
+    $('#add').onclick = () => { read(); s.exercises.push({name: '', sets: '', reps: '', notes: ''}); draw(); };
+    app.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { read(); s.exercises.splice(b.dataset.rm, 1); draw(); });
+    $('#sv').onclick = async () => {
+      read(); s.exercises = s.exercises.filter(e => e.name.trim());
+      if (!s.title.trim() || !s.exercises.length) return alert('Il faut un titre et au moins un exercice.');
+      const ref = id ? db.collection('sessions').doc(id) : db.collection('sessions').doc();
+      await ref.set({title: s.title, date: s.date, exercises: s.exercises});
+      location.hash = '#/seance/' + ref.id;
+    };
+  };
+  draw();
+}
+</script>
+</body>
+</html>
