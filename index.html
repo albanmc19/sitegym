@@ -82,6 +82,19 @@ nav a .ic{display:none}
 .comp textarea{flex:1;resize:none;max-height:140px}
 .x{background:none;border:0;color:inherit;opacity:.85;text-decoration:underline;padding:0;min-height:0;font:inherit;font-size:12px;border-radius:0;cursor:pointer}
 @media(max-width:600px){.comp{bottom:calc(64px + env(safe-area-inset-bottom))}}
+body.out header{display:none}
+.hero{max-width:520px;margin:0 auto;padding-top:max(5vh,20px)}
+.hero .bell{width:96px;color:var(--acc);margin-bottom:14px}
+.kicker{font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:var(--acc)}
+.hero h1{font-size:clamp(46px,14vw,76px);margin:10px 0 14px}
+.lead{font-size:18px;color:var(--mute);margin:0 0 26px}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:56px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:12px;font-size:17px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.gbtn:disabled{opacity:.7}
+.fine{font-size:13px;color:var(--mute);margin:10px 0 34px;text-align:center}
+.feat{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.feat li{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:14px 16px}
+.feat b{display:block;font:800 21px 'Barlow Condensed',sans-serif;letter-spacing:.02em}
+.feat span{color:var(--mute)}
 </style>
 </head>
 <body>
@@ -155,9 +168,30 @@ function watchMsgs() {
 async function route() {
   if (pageUnsub) { pageUnsub(); pageUnsub = null; }
   nav();
+  document.body.classList.toggle('out', !user);
   if (!user) {
-    app.innerHTML = `<div id="login"><h1>Séance du jour</h1><p class="mute">Connecte-toi pour voir le programme.</p><button id="g">Se connecter avec Google</button></div>`;
-    $('#g').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => alert(e.message));
+    app.innerHTML = `<section class="hero">
+      <svg class="bell" viewBox="0 0 96 40" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M30 20h36M14 8v24M22 3v34M74 3v34M82 8v24M6 15v10M90 15v10"/></svg>
+      <div class="kicker">Salle de sport · suivi à deux</div>
+      <h1>Ta séance, prête quand tu l’es.</h1>
+      <p class="lead">Retrouve le programme du jour, coche chaque exercice fait, note tes charges et écris directement à ton partenaire d’entraînement.</p>
+      <button id="g" class="gbtn"><svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg><span>Continuer avec Google</span></button>
+      <p class="fine">Connexion sécurisée par Google, sans mot de passe à retenir.</p>
+      <ul class="feat">
+        <li><b>La séance du jour</b><span>Elle s’ouvre dès la connexion, avec les vidéos d’exécution.</span></li>
+        <li><b>Un suivi honnête</b><span>Tu coches ce que tu as vraiment fait et la charge utilisée.</span></li>
+        <li><b>Une messagerie intégrée</b><span>Une question sur un exercice ? Écris, la réponse arrive ici.</span></li>
+      </ul></section>`;
+    $('#g').onclick = async () => {
+      const btn = $('#g'), p = new firebase.auth.GoogleAuthProvider();
+      btn.disabled = true; btn.querySelector('span').textContent = 'Connexion…';
+      try { await auth.signInWithPopup(p); }
+      catch (e) {
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) return auth.signInWithRedirect(p);
+        if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(e.code)) alert(e.message);
+        btn.disabled = false; btn.querySelector('span').textContent = 'Continuer avec Google';
+      }
+    };
     return;
   }
   const [, page, id] = (location.hash || '#/').split('/');
