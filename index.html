@@ -1233,9 +1233,9 @@ async function profilePage(uid) {
   const myFol = new Set((await db.collection('follows').where('from', '==', user.uid).get()).docs.map(d => d.data().to));
   let tab = 'followers';
   app.innerHTML = `<p style="margin:0"><a class="link" href="#/plus" style="padding-left:0">← Compte</a></p>
-    <div class="ph">${av(u, 'xl')}<div style="min-width:0"><h1>${esc(u.name || 'Sans nom')}</h1><span class="mute ${isOnline(u.seen) || self ? 'on-t' : ''}">${lastSeen(u.seen, self)}</span></div></div>
+    <div class="ph">${av(u, 'xl')}<div style="min-width:0"><h1>${esc(u.name || 'Sans nom')}</h1><span class="mute ${isOnline(u.seen) || self ? 'on-t' : ''}">${lastSeen(u.seen, self)}</span>${!self && following.some(x => x.uid === user.uid) ? '<br><span class="pill" style="margin-top:6px">Te suit</span>' : ''}</div></div>
     ${u.bio ? `<p class="bio">${esc(u.bio)}</p>` : ''}
-    <p class="row" style="margin:0 0 6px">${self ? '<button id="ed">Modifier le profil</button>' : fbtn(uid, iFollow).replace('class="fb', 'style="min-height:46px" class="fb')}${self ? '' : ''}</p>
+    <p class="row" style="margin:0 0 6px">${self ? '<button id="ed">Modifier le profil</button>' : fbtn(uid, iFollow).replace('class="fb', 'id="mainf" style="min-height:48px;font-size:17px" class="fb')}</p>
     ${self ? `<div class="card" id="edbox" hidden>
       <label>Photo de profil</label>
       <div class="row nowrap" style="align-items:center"><span id="edav">${av(u)}</span><input id="edf" type="file" accept="image/*"><button class="alt" id="edrm" type="button" style="flex:none">Retirer</button></div>
@@ -1243,7 +1243,7 @@ async function profilePage(uid) {
       <label for="edb">Bio</label><textarea id="edb" rows="2" maxlength="140" placeholder="Objectif, salle, programme…">${esc(u.bio || '')}</textarea>
       <p id="eder" class="err" hidden></p>
       <p class="row" style="margin:14px 0 0"><button id="eds">Enregistrer</button><button class="alt" id="edc" type="button">Annuler</button></p></div>` : ''}
-    <div class="stats s3"><div class="stat"><b>${followers.length}</b><span>Abonné${followers.length > 1 ? 's' : ''}</span></div><div class="stat"><b>${following.length}</b><span>Abonnement${following.length > 1 ? 's' : ''}</span></div><div class="stat"><b>${u.seen ? new Date(u.seen).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'}) : '–'}</b><span>Dernière activité</span></div></div>
+    <div class="stats s3"><div class="stat"><b id="nfol">${followers.length}</b><span id="lfol">Abonné${followers.length > 1 ? 's' : ''}</span></div><div class="stat"><b>${following.length}</b><span>Abonnement${following.length > 1 ? 's' : ''}</span></div><div class="stat"><b>${u.seen ? new Date(u.seen).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'}) : '–'}</b><span>Dernière activité</span></div></div>
     <div class="seg" id="tabs"><a href="#" data-t="followers" class="on">Abonnés</a><a href="#" data-t="following">Abonnements</a></div><div id="plist"></div>`;
   const drawList = () => {
     const l = tab === 'followers' ? followers : following;
@@ -1252,7 +1252,23 @@ async function profilePage(uid) {
   };
   $('#tabs').querySelectorAll('a').forEach(a => a.onclick = e => { e.preventDefault(); tab = a.dataset.t; $('#tabs').querySelectorAll('a').forEach(x => x.classList.toggle('on', x === a)); drawList(); });
   drawList();
-  if (!self) { wireFollow(app.querySelector('.row'), () => profilePage(uid)); return; }
+  if (!self) {
+    let on = iFollow; const b = $('#mainf');
+    b.onclick = async () => {
+      b.disabled = true;
+      try {
+        await toggleFollow(uid, on); on = !on;
+        const i = followers.findIndex(x => x.uid === user.uid);
+        if (on && i < 0 && users[user.uid]) followers.unshift(users[user.uid]);
+        if (!on && i >= 0) followers.splice(i, 1);
+        b.textContent = on ? 'Suivi ✓' : 'Suivre'; b.classList.toggle('alt', on);
+        $('#nfol').textContent = followers.length; $('#lfol').textContent = 'Abonné' + (followers.length > 1 ? 's' : '');
+        if (tab === 'followers') drawList();
+      } catch (e) { alert('Erreur : ' + e.message); }
+      b.disabled = false;
+    };
+    return;
+  }
   let photo = u.photo || '';
   $('#ed').onclick = () => { $('#edbox').hidden = false; $('#ed').hidden = true; };
   $('#edc').onclick = () => profilePage(uid);
