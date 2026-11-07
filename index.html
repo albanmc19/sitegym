@@ -422,7 +422,7 @@ async function listSessions() {
 
 // ----- Spotify : mets ici ton Client ID (developer.spotify.com/dashboard) -----
 const SPOTIFY_CLIENT_ID = 'd18da7882f1f4d4590c5237f1343ef58';
-const SP = {id: SPOTIFY_CLIENT_ID, scope: 'user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private', redir: () => location.origin + location.pathname};
+const SP = {id: SPOTIFY_CLIENT_ID, scope: 'user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private user-library-read user-library-modify', redir: () => location.origin + location.pathname};
 const spGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const spSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -464,7 +464,7 @@ async function musicPage() {
   const on = !!SP.id, tok = on && await spAuth();
   app.innerHTML = `<h1>Musique</h1><p id="sperr" class="err" role="alert" hidden></p>
   ${!on ? '<div class="card"><b>Pilotage Spotify non configuré</b><p class="mute">Ajoute ton Client ID Spotify dans le code pour contrôler la lecture ici. En attendant, enregistre des playlists ci-dessous.</p></div>'
-   : tok ? '<div id="spbox"></div><div id="spdev"></div><h2>Mes playlists</h2><div id="splists" class="pls"></div><h2>Rechercher</h2><input id="spq" type="search" placeholder="Titre, artiste…" aria-label="Rechercher un titre"><div id="spres"></div><p><button class="link" id="spout">Déconnecter Spotify</button></p>'
+   : tok ? '<div id="spbox"></div><div id="spdev"></div><h2>Mes playlists</h2><div id="splists" class="pls"></div><h2>Titres likés</h2><div id="spliked"></div><h2>Rechercher</h2><input id="spq" type="search" placeholder="Titre, album, artiste…" aria-label="Rechercher un titre"><div id="spres"></div><p><button class="link" id="spout">Déconnecter Spotify</button></p>'
    : '<div class="card"><b>Connecte ton Spotify</b><p class="mute">Pilote la lecture depuis ici (Spotify Premium requis). Ouvre d’abord Spotify sur un appareil.</p><button id="spc" style="width:100%">Se connecter à Spotify</button></div>'}
   <h2>Playlists enregistrées</h2><div class="row nowrap"><input id="spu" placeholder="Colle un lien Spotify" aria-label="Lien Spotify" inputmode="url"><button id="spadd" style="flex:none">Ajouter</button></div><div id="spemb" style="margin-top:8px"></div>`;
   const spErr = e => {
@@ -487,21 +487,28 @@ async function musicPage() {
   if (!tok) return;
   let cur = null, key = '';
   const play = async body => { const d = $('#spd') && $('#spd').value; try { await spApi('/me/player/play' + (d ? '?device_id=' + encodeURIComponent(d) : ''), {method: 'PUT', body}); setTimeout(refresh, 600); } catch (e) { spErr(e); } };
-  const act = async a => { try { if (a === 'pp') await spApi(cur && cur.is_playing ? '/me/player/pause' : '/me/player/play', {method: 'PUT'}); else await spApi('/me/player/' + (a === 'next' ? 'next' : 'previous'), {method: 'POST'}); setTimeout(refresh, 500); } catch (e) { spErr(e); } };
+  const act = async a => { try {
+      if (a === 'rep') { const n = {off: 'context', context: 'track', track: 'off'}[(cur && cur.repeat_state) || 'off']; await spApi('/me/player/repeat?state=' + n, {method: 'PUT'}); }
+      else if (a === 'like') { const lb = $('#lk'), was = lb.dataset.on === '1'; await spApi('/me/tracks?ids=' + cur.item.id, {method: was ? 'DELETE' : 'PUT'}); setLike(!was); loadLiked(); return; }
+      else if (a === 'pp') await spApi(cur && cur.is_playing ? '/me/player/pause' : '/me/player/play', {method: 'PUT'}); else await spApi('/me/player/' + (a === 'next' ? 'next' : 'previous'), {method: 'POST'}); setTimeout(refresh, 500); } catch (e) { spErr(e); } };
+  const setLike = v => { const b = $('#lk'); if (!b) return; b.dataset.on = v ? '1' : '0'; b.textContent = v ? '♥' : '♡'; b.classList.toggle('alt', !v); b.setAttribute('aria-label', v ? 'Retirer des titres likés' : 'Liker'); };
   const drawP = st => {
     const it = st && st.item, box = $('#spbox'); if (!box) return;
     if (!it) { box.innerHTML = '<div class="card"><b>Rien en lecture</b><p class="mute">Choisis un appareil ci-dessous, puis une playlist.</p></div>'; return; }
     const img = (it.album ? it.album.images : it.images) || [], who = it.artists ? it.artists.map(a => a.name).join(', ') : (it.show ? it.show.name : '');
     box.innerHTML = `<div class="card sp"><img src="${esc((img[1] || img[0] || {}).url || '')}" alt=""><div class="spi"><b>${esc(it.name)}</b><span class="mute">${esc(who)}</span><div class="bar"><i style="width:${Math.min(100, st.progress_ms / it.duration_ms * 100)}%"></i></div>
-      <div class="ctl"><button class="alt" data-a="prev" aria-label="Précédent">⏮</button><button data-a="pp" aria-label="${st.is_playing ? 'Pause' : 'Lecture'}">${st.is_playing ? '⏸' : '▶'}</button><button class="alt" data-a="next" aria-label="Suivant">⏭</button></div>
+      <div class="ctl"><button class="alt" data-a="prev" aria-label="Précédent">⏮</button><button data-a="pp" aria-label="${st.is_playing ? 'Pause' : 'Lecture'}">${st.is_playing ? '⏸' : '▶'}</button><button class="alt" data-a="next" aria-label="Suivant">⏭</button>
+        <button class="${st.repeat_state && st.repeat_state !== 'off' ? '' : 'alt'}" data-a="rep" aria-label="Boucle">${st.repeat_state === 'track' ? '🔂' : '🔁'}</button>${it.type === 'track' ? '<button class="alt" id="lk" data-a="like" data-on="0" aria-label="Liker">♡</button>' : ''}</div>
+      <p class="vol" style="margin-top:8px">Boucle : <b>${st.repeat_state === 'track' ? 'ce titre en boucle' : st.repeat_state === 'context' ? 'playlist / album en boucle' : 'désactivée'}</b></p>
       <label class="vol" for="vol">Volume · ${esc(st.device ? st.device.name : '')}</label><input type="range" id="vol" min="0" max="100" value="${st.device ? st.device.volume_percent || 0 : 50}"></div></div>`;
     box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => act(b.dataset.a));
+    if (it.type === 'track') spApi('/me/tracks/contains?ids=' + it.id).then(r => setLike(!!(r && r[0]))).catch(() => {});
     $('#vol').onchange = e => spApi('/me/player/volume?volume_percent=' + e.target.value, {method: 'PUT'}).catch(spErr);
   };
   const refresh = async () => {
     try { cur = await spApi('/me/player'); } catch (e) { return spErr(e); }
     if (!$('#spbox')) return;
-    const it = cur && cur.item, k = it ? it.id + cur.is_playing : '';
+    const it = cur && cur.item, k = it ? it.id + cur.is_playing + cur.repeat_state : '';
     if (k !== key) { key = k; drawP(cur); } else if (it) { const i = $('#spbox .bar i'); if (i) i.style.width = Math.min(100, cur.progress_ms / it.duration_ms * 100) + '%'; }
   };
   const devs = async () => {
@@ -516,20 +523,67 @@ async function musicPage() {
     $('#splists').innerHTML = r.items.filter(Boolean).map(p => `<button class="pl" data-u="${esc(p.uri)}"><img src="${esc((p.images && p.images[0] || {}).url || '')}" alt="" loading="lazy"><span>${esc(p.name)}</span></button>`).join('') || '<p class="mute">Aucune playlist.</p>';
     $('#splists').querySelectorAll('[data-u]').forEach(b => b.onclick = () => play({context_uri: b.dataset.u}));
   }).catch(spErr);
+  let sr = null;
+  const yr = d => (d || '').slice(0, 4);
+  const drawRes = () => {
+    const box = $('#spres'); if (!box || !sr) return;
+    const al = ((sr.albums || {}).items || []).filter(Boolean), tr = ((sr.tracks || {}).items || []).filter(Boolean);
+    box.innerHTML = (al.length ? '<h2 style="font-size:18px">Albums</h2>' + al.map(x => `<div class="tr"><img src="${esc((x.images[2] || x.images[0] || {}).url || '')}" alt=""><div><b>${esc(x.name)}</b><br><span class="mute">${esc(x.artists.map(a => a.name).join(', '))}${x.release_date ? ' · ' + esc(yr(x.release_date)) : ''}</span></div><button class="alt" data-ab="${esc(x.id)}" aria-label="Voir les titres">☰</button><button data-ap="${esc(x.uri)}" aria-label="Lire l’album">▶</button></div>`).join('') : '')
+      + (tr.length ? '<h2 style="font-size:18px">Titres</h2>' + tr.map(t => `<div class="tr"><img src="${esc((t.album.images[2] || t.album.images[0] || {}).url || '')}" alt=""><div><b>${esc(t.name)}</b><br><span class="mute">${esc(t.artists.map(a => a.name).join(', '))}</span></div><button class="alt" data-q="${esc(t.uri)}" aria-label="Ajouter à la file">+</button><button data-p="${esc(t.uri)}" aria-label="Lire">▶</button></div>`).join('') : '')
+      || '<p class="mute">Aucun résultat.</p>';
+    wireRes(box);
+    box.querySelectorAll('[data-p]').forEach(b => b.onclick = () => play({uris: [b.dataset.p]}));
+    box.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => play({context_uri: b.dataset.ap}));
+    box.querySelectorAll('[data-ab]').forEach(b => b.onclick = () => openAlbum(b.dataset.ab));
+  };
+  const wireRes = box => box.querySelectorAll('[data-q]').forEach(b => b.onclick = () => spApi('/me/player/queue?uri=' + encodeURIComponent(b.dataset.q), {method: 'POST'}).then(() => { b.textContent = '✓'; }).catch(spErr));
+  const openAlbum = async id => {
+    const box = $('#spres'); box.innerHTML = '<p class="mute">Chargement…</p>';
+    try {
+      const a = await spApi('/albums/' + encodeURIComponent(id)); let items = a.tracks.items.slice();
+      while (items.length < a.tracks.total) { const r = await spApi('/albums/' + encodeURIComponent(id) + '/tracks?limit=50&offset=' + items.length); if (!r.items.length) break; items = items.concat(r.items); }
+      const dur = ms => Math.floor(ms / 6e4) + ':' + String(Math.floor(ms / 1e3) % 60).padStart(2, '0');
+      box.innerHTML = `<button class="link" id="abk" style="padding-left:0">← Retour aux résultats</button>
+        <div class="card sp"><img src="${esc((a.images[1] || a.images[0] || {}).url || '')}" alt=""><div class="spi"><b>${esc(a.name)}</b><span class="mute">${esc(a.artists.map(x => x.name).join(', '))} · ${esc(yr(a.release_date))} · ${items.length} titre${items.length > 1 ? 's' : ''}</span><div class="ctl"><button id="apl">▶ Lire l’album</button></div></div></div>
+        <div class="card" style="padding:6px 14px">${items.map((t, i) => `<div class="tr"><span class="mute" style="width:22px;text-align:right;flex:none">${i + 1}</span><div><b>${esc(t.name)}</b><br><span class="mute">${dur(t.duration_ms)}${t.artists.length && t.artists.map(x => x.name).join(', ') !== a.artists.map(x => x.name).join(', ') ? ' · ' + esc(t.artists.map(x => x.name).join(', ')) : ''}</span></div><button class="alt" data-q="${esc(t.uri)}" aria-label="Ajouter à la file">+</button><button data-at="${i}" aria-label="Lire ce titre">▶</button></div>`).join('')}</div>`;
+      $('#abk').onclick = drawRes;
+      $('#apl').onclick = () => play({context_uri: a.uri});
+      box.querySelectorAll('[data-at]').forEach(b => b.onclick = () => play({context_uri: a.uri, offset: {position: +b.dataset.at}}));
+      wireRes(box);
+    } catch (e) { spErr(e); drawRes(); }
+  };
   let tm; $('#spq').oninput = e => {
     clearTimeout(tm); const q = e.target.value.trim();
     tm = setTimeout(async () => {
       if (!q) { $('#spres').innerHTML = ''; return; }
       try {
-        const r = await spApi('/search?type=track&limit=8&q=' + encodeURIComponent(q));
-        $('#spres').innerHTML = r.tracks.items.map(t => `<div class="tr"><img src="${esc((t.album.images[2] || t.album.images[0] || {}).url || '')}" alt=""><div><b>${esc(t.name)}</b><br><span class="mute">${esc(t.artists.map(a => a.name).join(', '))}</span></div><button class="alt" data-q="${esc(t.uri)}" aria-label="Ajouter à la file">+</button><button data-p="${esc(t.uri)}" aria-label="Lire">▶</button></div>`).join('') || '<p class="mute">Aucun résultat.</p>';
-        $('#spres').querySelectorAll('[data-p]').forEach(b => b.onclick = () => play({uris: [b.dataset.p]}));
-        $('#spres').querySelectorAll('[data-q]').forEach(b => b.onclick = () => spApi('/me/player/queue?uri=' + encodeURIComponent(b.dataset.q), {method: 'POST'}).then(() => { b.textContent = '✓'; }).catch(spErr));
+        sr = await spApi('/search?type=track,album&limit=6&q=' + encodeURIComponent(q));
+        drawRes();
       } catch (er) { spErr(er); }
     }, 400);
   };
+  let liked = [], lkTotal = 0;
+  const drawLiked = () => {
+    const box = $('#spliked'); if (!box) return;
+    box.innerHTML = liked.length ? `<p class="row" style="margin:0 0 8px"><button id="lkall">▶ Tout lire (${lkTotal})</button></p>` + liked.map((t, i) => `<div class="tr"><img src="${esc((t.album.images[2] || t.album.images[0] || {}).url || '')}" alt="" loading="lazy"><div><b>${esc(t.name)}</b><br><span class="mute">${esc(t.artists.map(a => a.name).join(', '))}</span></div><button class="alt" data-lq="${esc(t.uri)}" aria-label="Ajouter à la file">+</button><button data-lp="${i}" aria-label="Lire">▶</button></div>`).join('') + (liked.length < lkTotal ? '<p><button class="alt" id="lkmore" style="width:100%">Voir plus</button></p>' : '') : '<p class="mute">Aucun titre liké pour le moment.</p>';
+    const from = i => play({uris: liked.slice(i, i + 100).map(t => t.uri)});
+    box.querySelectorAll('[data-lp]').forEach(b => b.onclick = () => from(+b.dataset.lp));
+    box.querySelectorAll('[data-lq]').forEach(b => b.onclick = () => spApi('/me/player/queue?uri=' + encodeURIComponent(b.dataset.lq), {method: 'POST'}).then(() => { b.textContent = '✓'; }).catch(spErr));
+    if ($('#lkall')) $('#lkall').onclick = () => from(0);
+    if ($('#lkmore')) $('#lkmore').onclick = () => loadLiked(true);
+  };
+  const loadLiked = async more => {
+    try {
+      const r = await spApi('/me/tracks?limit=50&offset=' + (more ? liked.length : 0)), l = r.items.map(x => x.track).filter(Boolean);
+      lkTotal = r.total; liked = more ? liked.concat(l) : l; drawLiked();
+    } catch (e) {
+      const box = $('#spliked');
+      if (e.status === 401 || e.status === 403) { if (box) { box.innerHTML = '<div class="card"><p class="mute" style="margin-top:0">Autorise l’accès à tes titres likés : reconnecte Spotify une fois.</p><button id="lkre">Reconnecter Spotify</button></div>'; $('#lkre').onclick = spLogin; } }
+      else spErr(e);
+    }
+  };
   $('#spout').onclick = () => { spSet('sp_t', null); musicPage(); };
-  await refresh(); devs();
+  loadLiked(); await refresh(); devs();
   const iv = setInterval(refresh, 5000); pageUnsub = () => clearInterval(iv);
 }
 
