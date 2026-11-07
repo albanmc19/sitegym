@@ -143,12 +143,9 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(-
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 // ====== À REMPLIR ======
-// IMPORTANT iPhone : si ton site est sur Firebase Hosting, mets ici ton domaine
-// d'hébergement (ex. "sitegym-78f1e.web.app") à la place de ".firebaseapp.com"
-// pour que la redirection Google fonctionne sur Safari (ITP).
 const firebaseConfig = {
   apiKey: "AIzaSyB3oNx4T2I4oeak_tzdL6wAbmvyO5lQjS4",
-  authDomain: /\.(web\.app|firebaseapp\.com)$/.test(location.hostname) ? location.hostname : "sitegym-78f1e.firebaseapp.com",
+  authDomain: "sitegym-78f1e.firebaseapp.com",
   projectId: "sitegym-78f1e",
   storageBucket: "sitegym-78f1e.firebasestorage.app",
   messagingSenderId: "548938318019",
@@ -161,41 +158,13 @@ const ADMIN_EMAIL = "albanmc573@gmail.com"; // ton compte Google = admin
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
 
-// --- Correctifs iPhone / Safari ---
-// Firestore : évite les blocages de WebChannel sur Safari/iOS
-db.settings({ experimentalForceLongPolling: true, merge: true });
-// Persistance robuste (repli si IndexedDB est indisponible)
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-  .catch(() => auth.setPersistence(firebase.auth.Auth.Persistence.SESSION))
-  .catch(() => {});
-// Bandeau d'erreur visible (utile sur iPhone où la console est inaccessible)
-function showErr(m) {
-  let b = document.getElementById('errbar');
-  if (!b) {
-    b = document.createElement('div'); b.id = 'errbar'; b.setAttribute('role', 'alert');
-    b.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));z-index:99;padding:10px 12px;background:#fee4e2;color:#912018;border:1px solid #d92d20;border-radius:10px;font:14px/1.4 system-ui,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere';
-    b.onclick = () => b.remove();
-    document.body.appendChild(b);
-  }
-  b.textContent = m + '\n(touche pour fermer)';
-}
-const authMsg = e => ({
-  'auth/unauthorized-domain': "Domaine non autorisé : ajoute-le dans Firebase → Authentication → Settings → Authorized domains.",
-  'auth/network-request-failed': "Réseau indisponible. Réessaie.",
-  'auth/web-storage-unsupported': "Stockage bloqué par Safari : désactive la navigation privée ou « Bloquer tous les cookies »."
-}[e && e.code] || ((e && e.code ? e.code + ' : ' : '') + (e && e.message || e)));
-// Navigateurs intégrés (Snapchat, Instagram, Facebook…) : stockage isolé, la connexion Google par redirection y échoue
-const inApp = /Snapchat|Instagram|FBAN|FBAV|FB_IAB|Messenger|TikTok|musical_ly|BytedanceWebview|MicroMessenger|Line\/|Twitter|LinkedInApp|Pinterest|GSA\//i.test(navigator.userAgent);
+// Navigateurs intégrés (Snapchat, Instagram, Facebook…) : la connexion Google y échoue
+const inApp = /Snapchat|Instagram|FBAN|FBAV|FB_IAB|Messenger|TikTok|musical_ly|BytedanceWebview|MicroMessenger|Line\/|Twitter|LinkedInApp|Pinterest/i.test(navigator.userAgent);
 const copyLink = async () => {
-  try { await navigator.clipboard.writeText(location.href.split('#')[0]); showErr('Lien copié. Ouvre Safari et colle-le dans la barre d’adresse.'); }
-  catch (e) { prompt('Copie ce lien puis ouvre-le dans Safari :', location.href.split('#')[0]); }
+  const u = location.href.split('#')[0];
+  try { await navigator.clipboard.writeText(u); alert('Lien copié. Ouvre Safari et colle-le dans la barre d’adresse.'); }
+  catch (e) { prompt('Copie ce lien puis ouvre-le dans Safari :', u); }
 };
-addEventListener('error', e => showErr('Erreur JS : ' + e.message));
-addEventListener('unhandledrejection', e => showErr('Erreur : ' + authMsg(e.reason)));
-// Récupère le résultat ou l'erreur d'une connexion par redirection
-auth.getRedirectResult().catch(e => {
-  if (e && e.code && e.code !== 'auth/no-auth-event') showErr('Connexion : ' + authMsg(e));
-});
 
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -263,18 +232,17 @@ async function route() {
         <li><b>Une messagerie intégrée</b><span>Une question sur un exercice ? Écris, la réponse arrive ici.</span></li>
       </ul></section>`;
     if ($('#cpl')) $('#cpl').onclick = copyLink;
+    if ($('#cpl')) $('#cpl').onclick = copyLink;
     $('#g').onclick = async () => {
       const btn = $('#g'), p = new firebase.auth.GoogleAuthProvider();
-      p.setCustomParameters({prompt: 'select_account'});
       btn.disabled = true; btn.querySelector('span').textContent = 'Connexion…';
       try { await auth.signInWithPopup(p); }
       catch (e) {
         if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) {
-          if (inApp) { showErr('Connexion impossible dans ce navigateur intégré. Copie le lien et ouvre-le dans Safari.'); btn.disabled = false; btn.querySelector('span').textContent = 'Continuer avec Google'; return; }
-          try { return await auth.signInWithRedirect(p); } catch (e2) { showErr('Connexion : ' + authMsg(e2)); }
-        } else if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(e.code)) {
-          showErr('Connexion : ' + authMsg(e));
+          if (inApp) { alert('Connexion impossible dans ce navigateur intégré. Copie le lien et ouvre-le dans Safari.'); btn.disabled = false; btn.querySelector('span').textContent = 'Continuer avec Google'; return; }
+          return auth.signInWithRedirect(p);
         }
+        if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(e.code)) alert(e.message);
         btn.disabled = false; btn.querySelector('span').textContent = 'Continuer avec Google';
       }
     };
@@ -289,7 +257,7 @@ async function route() {
     if (page === 'seances') return await listSessions();
     if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id, extra) : await adminList();
     return await home();
-  } catch (e) { app.innerHTML = `<div class="card">Erreur : ${esc(e.code ? e.code + ' — ' : '')}${esc(e.message)}</div>`; }
+  } catch (e) { app.innerHTML = `<div class="card">Erreur : ${esc(e.message)}</div>`; }
 }
 
 async function all() {
