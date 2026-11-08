@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.spotify.com https://accounts.spotify.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com; frame-src https://open.spotify.com https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.spotify.com https://accounts.spotify.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <script>if(self!==top){document.documentElement.style.display='none';try{top.location=self.location}catch(e){}}</script>
 <meta name="theme-color" content="#f2f4f9" media="(prefers-color-scheme: light)">
@@ -242,18 +242,63 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .qa .ic{width:26px;height:26px;color:var(--acc)}
 .qa b{font-weight:600}.qa small{color:var(--mute);font-size:13px;margin-top:-6px}
 
-.cgt{font:700 13px var(--hf);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:26px 0 10px}
-.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-.cg a{display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--line);text-decoration:none;color:inherit;font-weight:600;line-height:1.25;transition:border-color .15s,transform .1s}
-.cg a:hover{border-color:var(--acc)}.cg a:active{transform:scale(.98)}
-.cg a small{color:var(--mute);font-weight:500;font-size:13px}.cg a.has small{color:var(--acc)}
-.exo .exh{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-.exo .pc{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:color-mix(in srgb,var(--acc) 14%,transparent);color:var(--acc);white-space:nowrap}
-.exo p{margin:8px 0 0}
-.exo .cm{color:var(--mute);border-left:3px solid var(--line);padding-left:10px;font-style:italic}
-.exo .adm{display:flex;gap:8px;margin-top:12px}.exo .adm button{padding:7px 14px;font-size:14px}
-.exh2{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-@media(max-width:600px){nav a{font-size:11px;letter-spacing:-.01em}}
+.g0{--gc:var(--acc)}.g1{--gc:var(--ok)}.g2{--gc:#3b7bff}
+@media(prefers-color-scheme:dark){.g2{--gc:#6ea2ff}}
+.xtop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.xh{position:relative;overflow:hidden;border-radius:22px;padding:24px 20px 20px;margin:6px 0 20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc,var(--acc)) 20%,var(--card)),var(--card) 72%);border:1px solid color-mix(in srgb,var(--gc,var(--acc)) 28%,var(--line))}
+.xh:after{content:"";position:absolute;right:-50px;top:-50px;width:180px;height:180px;border-radius:50%;background:color-mix(in srgb,var(--gc,var(--acc)) 16%,transparent);pointer-events:none}
+.xh>*{position:relative;z-index:1}
+.xh h1{margin:4px 0 6px}
+.xk{font:700 12px var(--hf);letter-spacing:.1em;text-transform:uppercase;color:var(--gc,var(--acc))}
+.xst{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}
+.xst span{font-size:13px;font-weight:600;padding:5px 12px;border-radius:99px;background:color-mix(in srgb,var(--card) 85%,transparent);border:1px solid var(--line)}
+#xq{margin-top:16px;background:var(--card);border:1.5px solid var(--line)}
+.cgt{display:flex;align-items:center;gap:10px;font:700 13px var(--hf);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:26px 0 12px}
+.cgt:before{content:"";width:10px;height:10px;border-radius:3px;background:var(--gc);transform:skewX(-12deg)}
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.cg a{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:14px;min-height:98px;padding:14px 14px 12px 20px;border-radius:16px;background:var(--card);border:1px solid var(--line);text-decoration:none;color:inherit;font-weight:600;line-height:1.2;overflow:hidden;transition:border-color .15s,transform .15s,box-shadow .15s}
+.cg a:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--gc)}
+.cg a:hover{border-color:var(--gc);transform:translateY(-2px);box-shadow:var(--sh)}.cg a:active{transform:scale(.98)}
+.cg a .cn{font-size:13px;font-weight:500;color:var(--mute)}.cg a .cn b{font:800 26px var(--hf);color:var(--gc);margin-right:4px;vertical-align:-2px}
+.cg a.z .cn b{color:var(--line)}
+.xl{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.xc2{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s,box-shadow .15s}
+.xc2:hover{border-color:var(--gc);transform:translateY(-2px);box-shadow:var(--sh)}
+.xth{position:relative;aspect-ratio:16/9;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 38%,var(--soft)),var(--soft));display:grid;place-items:center;overflow:hidden}
+.xth img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pl{position:relative;width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.58);display:grid;place-items:center}
+.pl:after{content:"";margin-left:4px;border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent}
+.xth.nv .pl{display:none}
+.xth .mo{font:800 46px var(--hf);color:var(--gc);opacity:.5}
+.xb{padding:14px 16px 16px}
+.xb b{display:block;font:700 17px/1.25 var(--hf);letter-spacing:-.01em}
+.xb p{margin:6px 0 0;color:var(--mute);font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pc{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;margin-bottom:8px;background:color-mix(in srgb,var(--gc,var(--acc)) 15%,transparent);color:var(--gc,var(--acc))}
+.xemp{border:2px dashed var(--line);border-radius:18px;padding:30px 20px;text-align:center;color:var(--mute)}
+.xd{max-width:760px;margin:0 auto}
+.xd h1{margin:4px 0 18px}
+.xv{position:relative;display:block;width:100%;aspect-ratio:16/9;border-radius:20px;overflow:hidden;border:0;padding:0;cursor:pointer;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 45%,#000),#111);box-shadow:var(--sh)}
+.xv img,.xv iframe{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:cover}
+.xv .pl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:70px;height:70px;transition:transform .15s}
+.xv:hover .pl{transform:translate(-50%,-50%) scale(1.08)}
+.xv .pl:after{border-left-width:20px;border-top-width:12px;border-bottom-width:12px}
+.xsec{margin:24px 0 0}
+.xsec h2{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:700 13px var(--hf);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.xsec h2:before{content:"";width:18px;height:3px;border-radius:2px;background:var(--gc)}
+.xtx{white-space:pre-line;font-size:17px;line-height:1.7;overflow-wrap:anywhere}
+.xcal{background:color-mix(in srgb,var(--gc) 10%,var(--card));border:1px solid color-mix(in srgb,var(--gc) 28%,var(--line));border-left:5px solid var(--gc);border-radius:14px;padding:14px 16px}
+.adm{display:flex;gap:8px;margin-top:26px}.adm button{padding:8px 16px;font-size:14px}
+.sheet.xf{width:min(640px,100%)}
+.xf .fs{font:700 12px var(--hf);letter-spacing:.1em;text-transform:uppercase;color:var(--acc);margin:22px 0 2px;padding-top:14px;border-top:1px solid var(--line)}
+.xf .fgl{font-size:13px;font-weight:600;color:var(--mute);margin:10px 0 6px}
+.fc{display:flex;flex-wrap:wrap;gap:6px}
+.fc button{background:var(--soft);color:var(--ink);border:1.5px solid transparent;padding:7px 12px;border-radius:99px;font-size:14px}
+.fc button.on{background:color-mix(in srgb,var(--gc) 16%,transparent);color:var(--gc);border-color:var(--gc)}
+.xpv{position:relative;margin-top:10px;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:var(--soft)}
+.xpv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.xpv .pl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.cnt{text-align:right;font-size:12px;color:var(--mute);margin-top:4px}
+@media(max-width:600px){nav a{font-size:11px;letter-spacing:-.01em}.xtx{font-size:16px}}
 </style>
 </head>
 <body>
@@ -631,73 +676,138 @@ const CATS = [
 ];
 const CATN = Object.fromEntries(CATS.flatMap(g => g.items));
 
-async function exercisesPage(cat) {
+const gOf = c => CATS.findIndex(g => g.items.some(i => i[0] === c));
+function vidInfo(u) {
+  try {
+    const x = new URL(u), h = x.hostname.replace(/^(www\.|m\.)/, ''); let id = '';
+    if (h === 'youtu.be') id = x.pathname.slice(1).split('/')[0];
+    else if (/^youtube(-nocookie)?\.com$/.test(h)) id = x.searchParams.get('v') || (x.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]+)/) || [])[1] || '';
+    if (/^[\w-]{6,15}$/.test(id)) return {yt: id};
+    if (h === 'vimeo.com') { const m = x.pathname.match(/\/(\d+)/); if (m) return {vi: m[1]}; }
+  } catch (e) {}
+  return null;
+}
+const thumb = u => { const v = okUrl(u) && vidInfo(u); return v && v.yt ? `https://img.youtube.com/vi/${v.yt}/hqdefault.jpg` : ''; };
+
+async function exercisesPage(cat, eid) {
   if (cat && !CATN[cat]) cat = '';
+  app.classList.add('wide');
   app.innerHTML = '<p class="mute">Chargement…</p>';
   let list;
   try { list = (await db.collection('exercises').get()).docs.map(d => ({id: d.id, ...d.data()})); }
   catch (e) { app.innerHTML = `<h1>Exercices</h1><div class="card"><b>Impossible de lire le catalogue.</b><p class="mute">${esc(e.message)}</p><p class="mute">Il faut autoriser la collection « exercises » dans les règles Firestore.</p></div>`; return; }
   list.sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
   let q = '';
-  const card = (e, showCat) => `<article class="card exo"><div class="exh"><b>${esc(e.name)}</b>${showCat ? `<span class="pc">${esc(CATN[e.cat] || '')}</span>` : ''}</div>
-    ${e.desc ? `<p>${esc(e.desc)}</p>` : ''}
-    ${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener noreferrer">▶ Voir la vidéo</a>` : ''}
-    ${e.comment ? `<p class="cm">${esc(e.comment)}</p>` : ''}
-    ${isAdmin ? `<div class="adm"><button class="alt" data-ed="${esc(e.id)}">Modifier</button><button class="del" data-rm="${esc(e.id)}">Supprimer</button></div>` : ''}</article>`;
-  function body() {
-    const box = $('#exbody'), t = q.trim().toLowerCase();
-    let h = '';
-    if (t) {
-      const r = list.filter(e => [e.name, e.desc, e.comment, CATN[e.cat]].join(' ').toLowerCase().includes(t));
-      h = r.length ? r.map(e => card(e, true)).join('') : '<p class="mute">Aucun exercice trouvé.</p>';
-    } else if (cat) {
-      const r = list.filter(e => e.cat === cat);
-      h = `<p><a class="link" href="#/exercices" style="padding-left:0">‹ Toutes les catégories</a></p><h2 style="margin-top:6px">${esc(CATN[cat])}</h2>` +
-        (r.length ? r.map(e => card(e, false)).join('') : `<p class="mute">Aucun exercice dans cette catégorie${isAdmin ? ' — ajoutes-en un avec le bouton ci-dessus.' : ' pour le moment.'}</p>`);
-    } else {
-      h = CATS.map(g => `<div class="cgt">${esc(g.g)}</div><div class="cg">${g.items.map(([id, n]) => { const c = list.filter(e => e.cat === id).length; return `<a href="#/exercices/${id}" class="${c ? 'has' : ''}">${esc(n)}<small>${c} exercice${c > 1 ? 's' : ''}</small></a>`; }).join('')}</div>`).join('');
-    }
-    box.innerHTML = h;
-    box.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => form(list.find(x => x.id === b.dataset.ed)));
-    box.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
-      const x = list.find(v => v.id === b.dataset.rm);
-      if (!confirm('Supprimer « ' + x.name + ' » du catalogue ?')) return;
-      try { await db.collection('exercises').doc(x.id).delete(); exercisesPage(cat); } catch (e) { alert(e.message); }
-    });
+  const plur = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+  const card = (e, sc) => {
+    const g = gOf(e.cat), th = thumb(e.video), hv = okUrl(e.video);
+    return `<a class="xc2 g${g}" href="#/exercices/${esc(e.cat)}/${esc(e.id)}"><div class="xth ${hv ? '' : 'nv'}">${th ? `<img src="${esc(th)}" alt="" loading="lazy">` : ''}${hv ? '<span class="pl"></span>' : `<span class="mo">${esc((e.name || '?')[0].toUpperCase())}</span>`}</div>
+      <div class="xb">${sc ? `<span class="pc">${esc(CATN[e.cat] || '')}</span>` : ''}<b>${esc(e.name)}</b>${e.desc ? `<p>${esc(e.desc)}</p>` : ''}</div></a>`;
+  };
+
+  function askDel(x) {
+    if (!confirm('Supprimer « ' + x.name + ' » du catalogue ?')) return;
+    db.collection('exercises').doc(x.id).delete().then(() => { const h = '#/exercices/' + x.cat; if (location.hash === h) exercisesPage(x.cat); else location.hash = h; }).catch(e => alert(e.message));
   }
+
   function form(ex) {
+    let sel = ex ? ex.cat : cat;
     const el = document.createElement('div'); el.className = 'modal';
-    const cur = ex ? ex.cat : cat;
-    el.innerHTML = `<div class="sheet" role="dialog" aria-label="Exercice"><h2 style="margin-top:0">${ex ? 'Modifier l’exercice' : 'Nouvel exercice'}</h2>
+    el.innerHTML = `<div class="sheet xf" role="dialog" aria-label="Exercice">
+      <div class="xk">${ex ? 'Modifier' : 'Nouvel exercice'}</div><h2 style="margin:2px 0 0">${ex ? esc(ex.name) : 'Ajouter au catalogue'}</h2>
+      <p class="mute" style="margin:4px 0 0;font-size:14px">Seuls le nom et le groupe musculaire sont obligatoires.</p>
+      <div class="fs">1 · L’essentiel</div>
       <label for="xn">Nom de l’exercice</label><input id="xn" maxlength="120" value="${esc(ex ? ex.name : '')}" placeholder="Ex : Développé couché">
-      <label for="xc">Catégorie</label><select id="xc"><option value="">Choisir…</option>${CATS.map(g => `<optgroup label="${esc(g.g)}">${g.items.map(([id, n]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('')}</select>
-      <label for="xd">Description <span class="mute">(facultatif)</span></label><textarea id="xd" rows="3" maxlength="1000" placeholder="Muscles travaillés, placement, exécution…">${esc(ex ? ex.desc : '')}</textarea>
-      <label for="xv">Vidéo d’explication <span class="mute">(YouTube ou Vimeo)</span></label><input id="xv" type="url" inputmode="url" value="${esc(ex ? ex.video : '')}" placeholder="https://www.youtube.com/watch?v=…">
-      <label for="xm">Commentaire <span class="mute">(facultatif)</span></label><textarea id="xm" rows="2" maxlength="500" placeholder="Astuce, variante, erreur à éviter…">${esc(ex ? ex.comment : '')}</textarea>
+      <label>Groupe musculaire</label>
+      ${CATS.map((g, i) => `<div class="fgl">${esc(g.g)}</div><div class="fc">${g.items.map(([id, n]) => `<button type="button" class="g${i} ${id === sel ? 'on' : ''}" data-c="${id}">${esc(n)}</button>`).join('')}</div>`).join('')}
+      <div class="fs">2 · Pour bien expliquer</div>
+      <label for="xd">Description</label><textarea id="xd" rows="6" maxlength="1000" placeholder="Muscles travaillés, placement, déroulé du mouvement, respiration… Tu peux aller à la ligne pour aérer le texte.">${esc(ex ? ex.desc : '')}</textarea><div class="cnt" id="xdc"></div>
+      <label for="xv">Vidéo d’explication <span class="mute">(YouTube ou Vimeo)</span></label><input id="xv" type="url" inputmode="url" value="${esc(ex ? ex.video : '')}" placeholder="https://www.youtube.com/watch?v=…"><div id="xp"></div>
+      <div class="fs">3 · Pour aller plus loin</div>
+      <label for="xm">Commentaire <span class="mute">(facultatif)</span></label><textarea id="xm" rows="3" maxlength="500" placeholder="Astuce, variante, erreur fréquente à éviter…">${esc(ex ? ex.comment : '')}</textarea>
       <p id="xe" class="err" role="alert" hidden></p>
-      <p class="row" style="margin-top:18px"><button class="alt" id="xx">Annuler</button><button id="xs">Enregistrer</button></p></div>`;
+      <p class="row" style="margin-top:20px"><button class="alt" id="xx" type="button">Annuler</button><button id="xs" type="button">Enregistrer</button></p></div>`;
     document.body.appendChild(el);
     const g = s => el.querySelector(s), close = () => el.remove();
     el.onclick = ev => { if (ev.target === el) close(); };
     g('#xx').onclick = close;
+    el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { sel = b.dataset.c; el.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
+    const cnt = () => { g('#xdc').textContent = g('#xd').value.length + ' / 1000'; };
+    g('#xd').oninput = cnt; cnt();
+    const pv = () => {
+      const u = g('#xv').value.trim(), p = g('#xp');
+      if (!u) { p.innerHTML = ''; return; }
+      if (!okUrl(u)) { p.innerHTML = '<p class="err" style="margin:8px 0 0">Lien non reconnu : YouTube ou Vimeo en https://</p>'; return; }
+      const t = thumb(u);
+      p.innerHTML = t ? `<div class="xpv"><img src="${esc(t)}" alt=""><span class="pl"></span></div>` : '<p class="tag" style="margin:8px 0 0">✓ Vidéo reconnue</p>';
+    };
+    g('#xv').oninput = pv; pv();
     g('#xs').onclick = async () => {
-      const d = {name: g('#xn').value.trim(), cat: g('#xc').value, desc: g('#xd').value.trim(), video: g('#xv').value.trim(), comment: g('#xm').value.trim()};
-      const err = m => { const e = g('#xe'); e.textContent = m; e.hidden = false; };
+      const d = {name: g('#xn').value.trim(), cat: sel || '', desc: g('#xd').value.trim(), video: g('#xv').value.trim(), comment: g('#xm').value.trim()};
+      const err = m => { const e = g('#xe'); e.textContent = m; e.hidden = false; e.scrollIntoView({block: 'nearest'}); };
       if (!d.name) return err('Le nom est obligatoire.');
-      if (!d.cat) return err('Choisis une catégorie.');
+      if (!d.cat) return err('Choisis un groupe musculaire.');
       if (d.video && !okUrl(d.video)) return err('Lien vidéo invalide : https:// et YouTube ou Vimeo uniquement.');
       g('#xs').disabled = true;
       try {
         if (ex) await db.collection('exercises').doc(ex.id).set(d, {merge: true});
         else await db.collection('exercises').add({...d, createdAt: Date.now()});
-        close(); location.hash = '#/exercices/' + d.cat; if (cat === d.cat) exercisesPage(cat);
+        close();
+        const h = '#/exercices/' + d.cat + (ex ? '/' + ex.id : '');
+        if (location.hash === h) exercisesPage(d.cat, ex ? ex.id : ''); else location.hash = h;
       } catch (e) { g('#xs').disabled = false; err(e.message); }
     };
     g('#xn').focus();
   }
-  app.innerHTML = `<div class="exh2"><h1 style="margin:6px 0 8px">Exercices</h1>${isAdmin ? '<button id="xadd">+ Ajouter</button>' : ''}</div>
-    <p class="mute" style="margin-top:0">${list.length} exercice${list.length > 1 ? 's' : ''} au catalogue, rangés par groupe musculaire.</p>
-    <input id="xq" type="search" placeholder="Rechercher un exercice…" aria-label="Rechercher un exercice" autocomplete="off">
+
+  function detail() {
+    const e = list.find(x => x.id === eid);
+    if (!e) { app.innerHTML = '<div class="xd"><p><a class="link" href="#/exercices" style="padding-left:0">‹ Catalogue</a></p><div class="xemp">Cet exercice n’existe plus.</div></div>'; return; }
+    const c = e.cat, g = gOf(c), th = thumb(e.video), hv = okUrl(e.video), more = list.filter(x => x.cat === c && x.id !== e.id).slice(0, 6);
+    app.innerHTML = `<div class="xd g${g}">
+      <p style="margin:0 0 12px"><a class="link" href="#/exercices/${esc(c)}" style="padding-left:0">‹ ${esc(CATN[c])}</a></p>
+      <div class="xk">${esc(CATS[g].g)} · ${esc(CATN[c])}</div><h1>${esc(e.name)}</h1>
+      ${hv ? `<button class="xv" id="xv" type="button" aria-label="Lire la vidéo">${th ? `<img src="${esc(th)}" alt="">` : ''}<span class="pl"></span></button>
+        <p style="margin:10px 0 0;font-size:14px"><a href="${esc(e.video)}" target="_blank" rel="noopener noreferrer" style="color:var(--gc);font-weight:600">Ouvrir sur le site de la vidéo ↗</a></p>` : ''}
+      ${e.desc ? `<section class="xsec"><h2>Description</h2><div class="xtx">${esc(e.desc)}</div></section>` : ''}
+      ${e.comment ? `<section class="xsec"><h2>Commentaire</h2><div class="xcal xtx">${esc(e.comment)}</div></section>` : ''}
+      ${!e.desc && !e.comment && !hv ? `<div class="xemp" style="margin-top:20px">Cet exercice n’a pas encore de détails.${isAdmin ? ' Clique sur « Modifier » pour en ajouter.' : ''}</div>` : ''}
+      ${isAdmin ? '<div class="adm"><button class="alt" id="xed">Modifier</button><button class="del" id="xrm">Supprimer</button></div>' : ''}
+      ${more.length ? `<section class="xsec" style="margin-top:34px"><h2>Dans la même catégorie</h2><div class="xl">${more.map(x => card(x, false)).join('')}</div></section>` : ''}</div>`;
+    const v = $('#xv');
+    if (v) v.onclick = () => {
+      const i = vidInfo(e.video), src = i && i.yt ? `https://www.youtube-nocookie.com/embed/${i.yt}?autoplay=1&rel=0` : i && i.vi ? `https://player.vimeo.com/video/${i.vi}?autoplay=1` : '';
+      if (!src) return window.open(e.video, '_blank', 'noopener');
+      const f = document.createElement('iframe'), w = document.createElement('div');
+      f.src = src; f.title = e.name; f.allow = 'autoplay; fullscreen; picture-in-picture'; f.allowFullscreen = true; f.referrerPolicy = 'strict-origin-when-cross-origin';
+      w.className = 'xv'; w.appendChild(f); v.replaceWith(w);
+    };
+    if (isAdmin) { $('#xed').onclick = () => form(e); $('#xrm').onclick = () => askDel(e); }
+  }
+
+  function body() {
+    const box = $('#exbody'), t = q.trim().toLowerCase();
+    let h = '';
+    if (t) {
+      const r = list.filter(e => [e.name, e.desc, e.comment, CATN[e.cat]].join(' ').toLowerCase().includes(t));
+      h = r.length ? `<div class="xl">${r.map(e => card(e, true)).join('')}</div>` : '<div class="xemp">Aucun exercice trouvé.</div>';
+    } else if (cat) {
+      const r = list.filter(e => e.cat === cat);
+      h = r.length ? `<div class="xl g${gOf(cat)}">${r.map(e => card(e, false)).join('')}</div>` : `<div class="xemp">Aucun exercice dans cette catégorie${isAdmin ? ' pour le moment.<br>Ajoute le premier avec le bouton « + Ajouter ».' : ' pour le moment.'}</div>`;
+    } else {
+      h = CATS.map((g, gi) => `<div class="cgt g${gi}">${esc(g.g)}</div><div class="cg g${gi}">${g.items.map(([id, n]) => { const c = list.filter(e => e.cat === id).length; return `<a href="#/exercices/${id}" class="${c ? '' : 'z'}"><span>${esc(n)}</span><span class="cn"><b>${c}</b>exercice${c > 1 ? 's' : ''}</span></a>`; }).join('')}</div>`).join('');
+    }
+    box.innerHTML = h;
+  }
+
+  if (eid) return detail();
+  const sub = cat ? list.filter(e => e.cat === cat) : list, nv = sub.filter(e => okUrl(e.video)).length;
+  const filled = new Set(list.map(e => e.cat)).size;
+  app.innerHTML = `${cat ? '<p style="margin:0"><a class="link" href="#/exercices" style="padding-left:0">‹ Catalogue</a></p>' : ''}
+    <div class="xh ${cat ? 'g' + gOf(cat) : ''}"><div class="xtop"><div><div class="xk">${cat ? esc(CATS[gOf(cat)].g) : 'Catalogue'}</div><h1>${cat ? esc(CATN[cat]) : 'Exercices'}</h1></div>${isAdmin ? '<button id="xadd" style="flex:none">+ Ajouter</button>' : ''}</div>
+      <p class="mute" style="margin:0;max-width:520px">${cat ? 'Tous les exercices de ce groupe musculaire.' : 'Description, vidéo et conseils pour chaque exercice, rangés par groupe musculaire.'}</p>
+      <div class="xst"><span>${plur(sub.length, 'exercice')}</span><span>${nv} avec vidéo</span>${cat ? '' : `<span>${plur(filled, 'groupe')} rempli${filled > 1 ? 's' : ''}</span>`}</div>
+      <input id="xq" type="search" placeholder="Rechercher un exercice…" aria-label="Rechercher un exercice" autocomplete="off"></div>
     <div id="exbody"></div>`;
   $('#xq').oninput = e => { q = e.target.value; body(); };
   if (isAdmin) $('#xadd').onclick = () => form(null);
@@ -760,7 +870,7 @@ async function route() {
     if (page === 'membres') return await membersPage();
     if (page === 'poids') return await weightPage();
     if (page === 'progres') return await progressPage();
-    if (page === 'exercices') return await exercisesPage(id);
+    if (page === 'exercices') return await exercisesPage(id, extra);
     if (page === 'messages') return await messagesPage(id);
     if (page === 'seances') return await listSessions();
     if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id, extra) : await adminList();
