@@ -304,6 +304,19 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .xiw img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .xia{display:flex;gap:8px;margin-top:10px}.xia button{padding:7px 14px;font-size:14px}
 .xv.st{cursor:default;box-shadow:var(--sh)}
+.stw{margin-top:12px}
+.str{display:flex;gap:8px;align-items:center;margin-top:8px}
+.str .stn{flex:none;width:62px;font-size:14px;font-weight:600;color:var(--mute)}
+.str .w{flex:1;min-width:0;margin:0;text-align:center;font-weight:600;font-size:17px;padding:10px}
+.str .stu{flex:none;width:20px;font-size:14px;color:var(--mute)}
+.str button{flex:none;width:46px;min-height:44px;padding:0;font-size:22px}
+.sta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.sta button{padding:7px 12px;font-size:14px}
+.hxd{margin-top:8px;font-size:14px}.hxd summary{cursor:pointer;color:var(--mute);font-weight:600}
+.hxr{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}.hxr span:last-child{color:var(--mute);text-align:right}
+.hxm{font:700 13px var(--hf);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:22px 0 8px}
+.hxs summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+.hxs summary::-webkit-details-marker{display:none}.hxs summary:after{content:"›";color:var(--mute);font-size:22px;transition:transform .15s}
+.hxs[open] summary:after{transform:rotate(90deg)}
 @media(max-width:600px){nav a{font-size:11px;letter-spacing:-.01em}.xtx{font-size:16px}}
 </style>
 </head>
@@ -378,7 +391,7 @@ let unread = 0, unsub = null, pageUnsub = null;
 function nav() {
   document.title = (unread ? `(${unread}) ` : '') + 'Séances';
   const h = location.hash || '#/';
-  const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/']], ['#/exercices', 'dumb', 'Exercices', ['#/exercices']], ['#/progres', 'chart', 'Progrès', ['#/progres']], ['#/musique', 'music', 'Musique', ['#/musique']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
+  const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/', '#/historique']], ['#/exercices', 'dumb', 'Exercices', ['#/exercices']], ['#/progres', 'chart', 'Progrès', ['#/progres']], ['#/musique', 'music', 'Musique', ['#/musique']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
   $('#nav').innerHTML = user ? l.map(([a, i, t, m]) => `<a href="${a}" class="${(a === '#/' ? h === '#/' : m.some(p => h.startsWith(p))) ? 'on' : ''}">${icon(i)}<span>${t}</span>${a === '#/messages' && unread ? `<span class="bd">${unread}</span>` : ''}</a>`).join('') : '';
 }
 function watchMsgs() {
@@ -485,6 +498,29 @@ function startRest(sec, label) {
   $('#rtx').onclick = stopRest;
 }
 async function keepAwake() { try { if (navigator.wakeLock && !wl) { wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); } } catch (e) {} }
+
+async function historyPage() {
+  app.innerHTML = `<h1>Historique</h1>${seg('hist')}<input id="hq" type="search" placeholder="Rechercher une séance ou un exercice" aria-label="Rechercher"><div id="hl" style="margin-top:8px"><p class="mute">Chargement…</p></div>`;
+  const [ss, logs] = await Promise.all([all(), logsOf(user.uid)]);
+  const by = {}; logs.forEach(l => { by[l.sessionId] = l; });
+  const rows = ss.map(x => {
+    const l = by[x.id]; if (!l) return null;
+    const n = x.exercises.filter((_, i) => l.done && l.done[i]).length;
+    return n || Object.keys(l.w || {}).length || (l.note || '').trim() ? {s: x, l, n} : null;
+  }).filter(Boolean);
+  const draw = () => {
+    const q = $('#hq').value.trim().toLowerCase(), f = rows.filter(r => !q || (r.s.title + ' ' + r.s.exercises.map(e => e.name).join(' ')).toLowerCase().includes(q));
+    if (!f.length) { $('#hl').innerHTML = `<p class="mute">${rows.length ? 'Aucun résultat.' : 'Pas encore d’historique : tes séances apparaîtront ici dès que tu auras coché un exercice ou noté une charge.'}</p>`; return; }
+    let cur = '';
+    $('#hl').innerHTML = f.map(({s: x, l, n}) => {
+      const mo = new Date(x.date + 'T12:00').toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'});
+      const head = mo !== cur ? `<div class="hxm">${esc(mo)}</div>` : ''; cur = mo;
+      const body = x.exercises.map((e, i) => { const st = l.sets && l.sets[i]; const t = st ? st.map(fmtSet).join(' · ') : String((l.w || {})[i] || '').trim(); return `<div class="hxr"><span>${l.done && l.done[i] ? '✓' : '○'} ${esc(e.name)}</span><span>${esc(t || '—')}</span></div>`; }).join('');
+      return `${head}<details class="card hxs"><summary><span><b>${esc(x.title)}</b><br><span class="mute">${esc(fmt(x.date))} · ${n}/${x.exercises.length} faits</span></span></summary>${body}${l.note ? `<p class="mute"><i>« ${esc(l.note)} »</i></p>` : ''}<p><a class="btn alt" href="#/seance/${esc(x.id)}">Ouvrir / modifier la séance</a></p></details>`;
+    }).join('');
+  };
+  $('#hq').oninput = draw; draw();
+}
 
 async function listSessions() {
   const list = await all();
@@ -915,6 +951,7 @@ async function route() {
     if (page === 'exercices') return await exercisesPage(id, extra);
     if (page === 'messages') return await messagesPage(id);
     if (page === 'seances') return await listSessions();
+    if (page === 'historique') return await historyPage();
     if (page === 'admin' && isAdmin) return id ? await editSession(id === 'new' ? null : id, extra) : await adminList();
     await home(); return addInstall();
   } catch (e) { app.innerHTML = `<div class="card">Erreur : ${esc(e.message)}</div>`; }
@@ -969,17 +1006,31 @@ async function viewSession(id, label) {
   if (!doc.exists) { app.innerHTML = '<h1>Séance introuvable</h1>'; return; }
   const s = doc.data();
   const logRef = db.collection('logs').doc(id + '_' + user.uid);
-  const mine = Object.assign({done: {}, w: {}, note: ''}, (await logRef.get()).data());
-  mine.w = mine.w || {};
+  const mine = Object.assign({done: {}, w: {}, note: '', sets: {}}, (await logRef.get()).data());
+  mine.w = mine.w || {}; mine.sets = mine.sets || {};
+  s.exercises.forEach((e, i) => {
+    let a = Array.isArray(mine.sets[i]) ? mine.sets[i].map(String) : null;
+    if (!a) { const o = String(mine.w[i] || '').trim(), n = parseLoad(o); a = o ? [n != null ? fmtNum(n) : o] : []; }
+    const want = Math.min(12, Math.max(1, parseInt(e.sets) || 3));
+    while (a.length < want) a.push('');
+    mine.sets[i] = a;
+  });
+  const rd = i => [...app.querySelectorAll(`[data-sw^="${i}:"]`)].map(x => x.value);
+  const sync = i => { const sm = sumSets(mine.sets[i]); if (sm) mine.w[i] = sm; else delete mine.w[i]; };
+  const upd = i => { mine.sets[i] = rd(i); sync(i); };
+  let tm = null; const auto = () => { clearTimeout(tm); tm = setTimeout(() => save('auto').catch(() => {}), 900); };
   const fill = () => getHistory(user.uid).then(h => {
     s.exercises.forEach((e, i) => {
       const el = app.querySelector(`[data-last="${i}"]`); if (!el) return;
       const k = e.name.trim().toLowerCase(), l = h.entries.filter(x => x.key === k && x.id !== id && x.date <= s.date);
       if (!l.length) return;
       const last = l[l.length - 1], nums = l.filter(x => x.num != null), best = nums.length ? nums.reduce((a, b) => b.num >= a.num ? b : a) : null;
-      el.textContent = `Dernière fois : ${last.w} (${short(last.date)})` + (best && best.num !== last.num ? ` · Record : ${best.w}` : '');
-      el.title = 'Toucher pour reprendre cette charge'; el.style.cursor = 'pointer';
-      el.onclick = () => { const inp = app.querySelector(`[data-w="${i}"]`); if (inp && !inp.value) { inp.value = last.w; mine.w[i] = last.w; } };
+      const src = last.sets || [last.w];
+      src.forEach((v, j) => { const inp = app.querySelector(`[data-sw="${i}:${j}"]`); const n = parseLoad(v); if (inp) inp.placeholder = n != null ? fmtNum(n) : String(v); });
+      el.textContent = `Dernière fois : ${last.w} (${short(last.date)})` + (best && best.num !== last.num ? ` · Record : ${fmtNum(best.num)} kg` : '');
+      el.title = 'Toucher pour reprendre ces charges'; el.style.cursor = 'pointer';
+      el.onclick = () => { src.forEach((v, j) => { const inp = app.querySelector(`[data-sw="${i}:${j}"]`); const n = parseLoad(v); if (inp && !inp.value && n != null) inp.value = fmtNum(n); }); upd(i); auto(); };
+      el.insertAdjacentHTML('afterend', `<details class="hxd"><summary>Historique de l’exercice (${l.length})</summary>${l.slice(-8).reverse().map(x => `<div class="hxr"><span>${esc(short(x.date))}</span><span>${esc(x.sets ? x.sets.map(fmtSet).join(' · ') : x.w)}</span></div>`).join('')}</details>`);
     });
   }).catch(() => {});
   const render = () => {
@@ -993,14 +1044,27 @@ async function viewSession(id, label) {
       <div class="pills">${e.sets || e.reps ? `<span class="pill">${e.sets && e.reps ? esc(e.sets) + ' × ' + esc(e.reps) : e.sets ? esc(e.sets) + ' séries' : esc(e.reps) + ' reps'}</span>` : ''}${e.load ? `<span class="pill">Prévu : ${esc(e.load)}</span>` : ''}${parseRest(e.rest) ? `<button class="pill" data-rest="${i}" aria-label="Lancer le chrono de repos">Repos ${esc(e.rest)}</button>` : e.rest ? `<span class="pill">Repos ${esc(e.rest)}</span>` : ''}</div>
       ${e.notes ? `<p class="xnote">${esc(e.notes)}</p>` : ''}
       <div class="last" data-last="${i}"></div>
-      <div class="wr"><button class="alt" data-st="${i}" data-d="-2.5" aria-label="Moins 2,5 kg">−</button><input class="w" data-w="${i}" inputmode="decimal" value="${esc(mine.w[i])}" placeholder="Charge utilisée" aria-label="Charge utilisée pour ${esc(e.name)}"><button class="alt" data-st="${i}" data-d="2.5" aria-label="Plus 2,5 kg">+</button></div>
+      <div class="stw">${mine.sets[i].map((v, k) => `<div class="str"><span class="stn">Série ${k + 1}</span><button class="alt" data-sd="${i}:${k}:-2.5" aria-label="Moins 2,5 kg">−</button><input class="w" data-sw="${i}:${k}" inputmode="decimal" value="${esc(v)}" placeholder="kg" aria-label="Charge de la série ${k + 1} pour ${esc(e.name)}"><span class="stu">kg</span><button class="alt" data-sd="${i}:${k}:2.5" aria-label="Plus 2,5 kg">+</button></div>`).join('')}
+        <div class="sta"><button class="alt" data-sadd="${i}">+ Série</button><button class="alt" data-srm="${i}" ${mine.sets[i].length <= 1 ? 'disabled' : ''}>− Série</button><button class="alt" data-scp="${i}">Même charge partout</button></div></div>
       ${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener noreferrer">▶ Voir la vidéo</a>` : ''}</article>`).join('')}</div>
     <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
     <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
     ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/admin/${id}">Modifier la séance</a><button class="alt" id="cpy">Copier…</button></p>` : ''}`;
     app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; if (c.checked) { const ex = s.exercises[c.dataset.i], r = parseRest(ex.rest); if (r) startRest(r, ex.name); } save(false); });
-    app.querySelectorAll('[data-w]').forEach(i => i.oninput = () => { mine.w[i.dataset.w] = i.value; });
-    app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { const i = b.dataset.st, inp = app.querySelector(`[data-w="${i}"]`), base = parseLoad(inp.value), cur = base != null ? base : (parseLoad(s.exercises[i].load) || 0), v = Math.max(0, Math.round((cur + +b.dataset.d) * 100) / 100); inp.value = fmtNum(v) + ' kg'; mine.w[i] = inp.value; });
+    app.querySelectorAll('[data-sw]').forEach(inp => inp.oninput = () => { upd(inp.dataset.sw.split(':')[0]); auto(); });
+    app.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => {
+      const [i, k, d] = b.dataset.sd.split(':'), inp = app.querySelector(`[data-sw="${i}:${k}"]`);
+      let base = parseLoad(inp.value);
+      if (base == null) {
+        const prev = [...Array(+k).keys()].reverse().map(j => parseLoad(app.querySelector(`[data-sw="${i}:${j}"]`).value)).find(x => x != null);
+        base = prev != null ? prev : (parseLoad(inp.placeholder) ?? (parseLoad(s.exercises[i].load) || 0));
+      }
+      inp.value = fmtNum(Math.max(0, Math.round((base + +d) * 100) / 100)); upd(i); auto();
+    });
+    const redo = () => { if ($('#note')) mine.note = $('#note').value; render(); auto(); };
+    app.querySelectorAll('[data-sadd]').forEach(b => b.onclick = () => { const i = b.dataset.sadd; upd(i); if (mine.sets[i].length < 12) mine.sets[i].push(''); redo(); });
+    app.querySelectorAll('[data-srm]').forEach(b => b.onclick = () => { const i = b.dataset.srm; upd(i); if (mine.sets[i].length > 1) mine.sets[i].pop(); sync(i); redo(); });
+    app.querySelectorAll('[data-scp]').forEach(b => b.onclick = () => { const i = b.dataset.scp; upd(i); const v = mine.sets[i].find(x => String(x).trim()); if (v) mine.sets[i] = mine.sets[i].map(() => v); sync(i); redo(); });
     app.querySelectorAll('[data-rest]').forEach(b => b.onclick = () => { const e = s.exercises[b.dataset.rest]; startRest(parseRest(e.rest), e.name); });
     $('#save').onclick = () => save(true);
     fill();
@@ -1014,8 +1078,10 @@ async function viewSession(id, label) {
   };
   async function save(manual) {
     if ($('#note')) mine.note = $('#note').value;
-    await logRef.set({uid: user.uid, name: nm(user), sessionId: id, done: mine.done, w: mine.w, note: mine.note, updatedAt: Date.now()});
-    if (manual) $('#ok').textContent = 'Enregistré'; else render();
+    const sets = {}; Object.keys(mine.sets).forEach(i => { const a = mine.sets[i].map(x => String(x).trim().slice(0, 30)); if (a.some(Boolean)) sets[i] = a; });
+    await logRef.set({uid: user.uid, name: nm(user), sessionId: id, done: mine.done, w: mine.w, sets, note: mine.note, updatedAt: Date.now()});
+    delete histCache[user.uid];
+    if (manual) { if ($('#ok')) $('#ok').textContent = 'Enregistré'; } else render();
   }
   render(); keepAwake();
 }
@@ -1029,7 +1095,7 @@ const linkify = t => esc(t).replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target
 const pad = n => String(n).padStart(2, '0');
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const ST = {done: 'Terminée', part: 'En cours', miss: 'Manquée', plan: 'Prévue'};
-const seg = cur => `<div class="seg"><a href="#/calendrier" class="${cur === 'cal' ? 'on' : ''}">Calendrier</a><a href="#/seances" class="${cur === 'list' ? 'on' : ''}">Liste</a></div>`;
+const seg = cur => `<div class="seg"><a href="#/calendrier" class="${cur === 'cal' ? 'on' : ''}">Calendrier</a><a href="#/seances" class="${cur === 'list' ? 'on' : ''}">Liste</a><a href="#/historique" class="${cur === 'hist' ? 'on' : ''}">Historique</a></div>`;
 const clone = x => JSON.parse(JSON.stringify(x));
 
 function copyModal(src) {
@@ -1123,6 +1189,8 @@ async function calendarPage() {
 const short = d => new Date(d + 'T12:00').toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'});
 const parseLoad = w => { const m = /(\d+(?:[.,]\d+)?)\s*kg/i.exec(w) || /(\d+(?:[.,]\d+)?)/.exec(w); return m ? parseFloat(m[1].replace(',', '.')) : null; };
 const fmtNum = n => String(Math.round(n * 100) / 100).replace('.', ',');
+const fmtSet = v => { v = String(v == null ? '' : v).trim(); return !v ? '—' : /^[\d.,\s]+$/.test(v) ? v + ' kg' : v; };
+const sumSets = a => (a || []).some(x => String(x).trim()) ? a.map(fmtSet).join(' · ') : '';
 let histCache = {};
 
 async function logsOf(uid) {
@@ -1149,8 +1217,11 @@ async function getHistory(uid, fresh) {
     const n = s.exercises.filter((_, i) => l.done && l.done[i]).length;
     if (n) done.push({date: s.date, id: s.id, title: s.title, n, total: s.exercises.length});
     s.exercises.forEach((e, i) => {
-      const w = String((l.w || {})[i] || '').trim();
-      if (w) entries.push({date: s.date, id: s.id, title: s.title, name: e.name, key: e.name.trim().toLowerCase(), w, num: parseLoad(w)});
+      const st = l.sets && Array.isArray(l.sets[i]) ? l.sets[i].map(x => String(x).trim()) : null, has = st && st.some(Boolean);
+      const w = String((l.w || {})[i] || '').trim() || (has ? sumSets(st) : '');
+      if (!w) return;
+      const nums = has ? st.map(parseLoad).filter(x => x != null) : [];
+      entries.push({date: s.date, id: s.id, title: s.title, name: e.name, key: e.name.trim().toLowerCase(), w, sets: has ? st : null, num: nums.length ? Math.max(...nums) : parseLoad(w)});
     });
   });
   const by = (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
