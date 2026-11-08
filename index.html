@@ -245,10 +245,10 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .g0{--gc:var(--acc)}.g1{--gc:var(--ok)}.g2{--gc:#3b7bff}
 @media(prefers-color-scheme:dark){.g2{--gc:#6ea2ff}}
 .xtop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-.xh{position:relative;overflow:hidden;border-radius:22px;padding:24px 20px 20px;margin:6px 0 20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc,var(--acc)) 20%,var(--card)),var(--card) 72%);border:1px solid color-mix(in srgb,var(--gc,var(--acc)) 28%,var(--line))}
-.xh:after{content:"";position:absolute;right:-50px;top:-50px;width:180px;height:180px;border-radius:50%;background:color-mix(in srgb,var(--gc,var(--acc)) 16%,transparent);pointer-events:none}
-.xh>*{position:relative;z-index:1}
-.xh h1{margin:4px 0 6px}
+.cxh{position:relative;overflow:hidden;border-radius:22px;padding:24px 20px 20px;margin:6px 0 20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc,var(--acc)) 20%,var(--card)),var(--card) 72%);border:1px solid color-mix(in srgb,var(--gc,var(--acc)) 28%,var(--line))}
+.cxh:after{content:"";position:absolute;right:-50px;top:-50px;width:180px;height:180px;border-radius:50%;background:color-mix(in srgb,var(--gc,var(--acc)) 16%,transparent);pointer-events:none}
+.cxh>*{position:relative;z-index:1}
+.cxh h1{margin:4px 0 6px}
 .xk{font:700 12px var(--hf);letter-spacing:.1em;text-transform:uppercase;color:var(--gc,var(--acc))}
 .xst{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}
 .xst span{font-size:13px;font-weight:600;padding:5px 12px;border-radius:99px;background:color-mix(in srgb,var(--card) 85%,transparent);border:1px solid var(--line)}
@@ -261,14 +261,14 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .cg a:hover{border-color:var(--gc);transform:translateY(-2px);box-shadow:var(--sh)}.cg a:active{transform:scale(.98)}
 .cg a .cn{font-size:13px;font-weight:500;color:var(--mute)}.cg a .cn b{font:800 26px var(--hf);color:var(--gc);margin-right:4px;vertical-align:-2px}
 .cg a.z .cn b{color:var(--line)}
-.xl{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.cxl{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .xc2{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s,box-shadow .15s}
 .xc2:hover{border-color:var(--gc);transform:translateY(-2px);box-shadow:var(--sh)}
 .xth{position:relative;aspect-ratio:16/9;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 38%,var(--soft)),var(--soft));display:grid;place-items:center;overflow:hidden}
 .xth img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.pl{position:relative;width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.58);display:grid;place-items:center}
-.pl:after{content:"";margin-left:4px;border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent}
-.xth.nv .pl{display:none}
+.cxpl{position:relative;width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.58);display:grid;place-items:center}
+.cxpl:after{content:"";margin-left:4px;border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent}
+.xth.nv .cxpl{display:none}
 .xth .mo{font:800 46px var(--hf);color:var(--gc);opacity:.5}
 .xb{padding:14px 16px 16px}
 .xb b{display:block;font:700 17px/1.25 var(--hf);letter-spacing:-.01em}
@@ -279,9 +279,9 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .xd h1{margin:4px 0 18px}
 .xv{position:relative;display:block;width:100%;aspect-ratio:16/9;border-radius:20px;overflow:hidden;border:0;padding:0;cursor:pointer;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 45%,#000),#111);box-shadow:var(--sh)}
 .xv img,.xv iframe{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:cover}
-.xv .pl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:70px;height:70px;transition:transform .15s}
-.xv:hover .pl{transform:translate(-50%,-50%) scale(1.08)}
-.xv .pl:after{border-left-width:20px;border-top-width:12px;border-bottom-width:12px}
+.xv .cxpl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:70px;height:70px;transition:transform .15s}
+.xv:hover .cxpl{transform:translate(-50%,-50%) scale(1.08)}
+.xv .cxpl:after{border-left-width:20px;border-top-width:12px;border-bottom-width:12px}
 .xsec{margin:24px 0 0}
 .xsec h2{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:700 13px var(--hf);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 .xsec h2:before{content:"";width:18px;height:3px;border-radius:2px;background:var(--gc)}
@@ -296,8 +296,14 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .fc button.on{background:color-mix(in srgb,var(--gc) 16%,transparent);color:var(--gc);border-color:var(--gc)}
 .xpv{position:relative;margin-top:10px;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:var(--soft)}
 .xpv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.xpv .pl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.xpv .cxpl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
 .cnt{text-align:right;font-size:12px;color:var(--mute);margin-top:4px}
+.xz{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;aspect-ratio:16/7;border:2px dashed var(--line);border-radius:16px;background:var(--soft);color:var(--mute);font-weight:600;cursor:pointer}
+.xz:hover{border-color:var(--acc);color:var(--acc);filter:none}
+.xiw{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:16/9;background:var(--soft)}
+.xiw img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.xia{display:flex;gap:8px;margin-top:10px}.xia button{padding:7px 14px;font-size:14px}
+.xv.st{cursor:default;box-shadow:var(--sh)}
 @media(max-width:600px){nav a{font-size:11px;letter-spacing:-.01em}.xtx{font-size:16px}}
 </style>
 </head>
@@ -689,6 +695,29 @@ function vidInfo(u) {
 }
 const thumb = u => { const v = okUrl(u) && vidInfo(u); return v && v.yt ? `https://img.youtube.com/vi/${v.yt}/hqdefault.jpg` : ''; };
 
+const exImg = e => /^data:image\/jpeg;base64,[\w+\/=]+$/.test((e && e.img) || '') ? e.img : '';
+function readCover(file) {
+  return new Promise((ok, ko) => {
+    if (!file || !/^image\//.test(file.type)) return ko(new Error('Choisis une image.'));
+    const fr = new FileReader();
+    fr.onerror = () => ko(new Error('Lecture impossible.'));
+    fr.onload = () => {
+      const im = new Image();
+      im.onerror = () => ko(new Error('Image non lisible.'));
+      im.onload = () => {
+        const W = 800, H = 450, c = document.createElement('canvas'); c.width = W; c.height = H;
+        const k = Math.max(W / im.width, H / im.height), w = im.width * k, h = im.height * k;
+        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+        let q = .8, u = c.toDataURL('image/jpeg', q);
+        while (u.length > 120000 && q > .35) { q -= .1; u = c.toDataURL('image/jpeg', q); }
+        u.length > 120000 ? ko(new Error('Image trop lourde, essaie-en une autre.')) : ok(u);
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
 async function exercisesPage(cat, eid) {
   if (cat && !CATN[cat]) cat = '';
   app.classList.add('wide');
@@ -700,8 +729,8 @@ async function exercisesPage(cat, eid) {
   let q = '';
   const plur = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
   const card = (e, sc) => {
-    const g = gOf(e.cat), th = thumb(e.video), hv = okUrl(e.video);
-    return `<a class="xc2 g${g}" href="#/exercices/${esc(e.cat)}/${esc(e.id)}"><div class="xth ${hv ? '' : 'nv'}">${th ? `<img src="${esc(th)}" alt="" loading="lazy">` : ''}${hv ? '<span class="pl"></span>' : `<span class="mo">${esc((e.name || '?')[0].toUpperCase())}</span>`}</div>
+    const g = gOf(e.cat), th = exImg(e) || thumb(e.video), hv = okUrl(e.video);
+    return `<a class="xc2 g${g}" href="#/exercices/${esc(e.cat)}/${esc(e.id)}"><div class="xth ${hv ? '' : 'nv'}">${th ? `<img src="${esc(th)}" alt="" loading="lazy">` : ''}${hv ? '<span class="cxpl"></span>' : (th ? '' : `<span class="mo">${esc((e.name || '?')[0].toUpperCase())}</span>`)}</div>
       <div class="xb">${sc ? `<span class="pc">${esc(CATN[e.cat] || '')}</span>` : ''}<b>${esc(e.name)}</b>${e.desc ? `<p>${esc(e.desc)}</p>` : ''}</div></a>`;
   };
 
@@ -711,7 +740,7 @@ async function exercisesPage(cat, eid) {
   }
 
   function form(ex) {
-    let sel = ex ? ex.cat : cat;
+    let sel = ex ? ex.cat : cat, img = ex ? exImg(ex) : '';
     const el = document.createElement('div'); el.className = 'modal';
     el.innerHTML = `<div class="sheet xf" role="dialog" aria-label="Exercice">
       <div class="xk">${ex ? 'Modifier' : 'Nouvel exercice'}</div><h2 style="margin:2px 0 0">${ex ? esc(ex.name) : 'Ajouter au catalogue'}</h2>
@@ -721,6 +750,7 @@ async function exercisesPage(cat, eid) {
       <label>Groupe musculaire</label>
       ${CATS.map((g, i) => `<div class="fgl">${esc(g.g)}</div><div class="fc">${g.items.map(([id, n]) => `<button type="button" class="g${i} ${id === sel ? 'on' : ''}" data-c="${id}">${esc(n)}</button>`).join('')}</div>`).join('')}
       <div class="fs">2 · Pour bien expliquer</div>
+      <label>Image de l’exercice <span class="mute">(facultatif)</span></label><div id="xi"></div><input type="file" id="xfi" accept="image/*" hidden>
       <label for="xd">Description</label><textarea id="xd" rows="6" maxlength="1000" placeholder="Muscles travaillés, placement, déroulé du mouvement, respiration… Tu peux aller à la ligne pour aérer le texte.">${esc(ex ? ex.desc : '')}</textarea><div class="cnt" id="xdc"></div>
       <label for="xv">Vidéo d’explication <span class="mute">(YouTube ou Vimeo)</span></label><input id="xv" type="url" inputmode="url" value="${esc(ex ? ex.video : '')}" placeholder="https://www.youtube.com/watch?v=…"><div id="xp"></div>
       <div class="fs">3 · Pour aller plus loin</div>
@@ -732,6 +762,17 @@ async function exercisesPage(cat, eid) {
     el.onclick = ev => { if (ev.target === el) close(); };
     g('#xx').onclick = close;
     el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { sel = b.dataset.c; el.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
+    const drawImg = () => {
+      g('#xi').innerHTML = img ? `<div class="xiw"><img src="${esc(img)}" alt=""></div><div class="xia"><button type="button" class="alt" id="xic">Changer</button><button type="button" class="del" id="xir">Retirer</button></div>` : '<button type="button" class="xz alt" id="xic">+ Ajouter une image</button>';
+      g('#xic').onclick = () => g('#xfi').click();
+      if (img) g('#xir').onclick = () => { img = ''; drawImg(); };
+    };
+    g('#xfi').onchange = async ev => {
+      const f = ev.target.files[0]; ev.target.value = '';
+      if (!f) return;
+      try { img = await readCover(f); g('#xe').hidden = true; drawImg(); } catch (e) { const x = g('#xe'); x.textContent = e.message; x.hidden = false; }
+    };
+    drawImg();
     const cnt = () => { g('#xdc').textContent = g('#xd').value.length + ' / 1000'; };
     g('#xd').oninput = cnt; cnt();
     const pv = () => {
@@ -739,11 +780,11 @@ async function exercisesPage(cat, eid) {
       if (!u) { p.innerHTML = ''; return; }
       if (!okUrl(u)) { p.innerHTML = '<p class="err" style="margin:8px 0 0">Lien non reconnu : YouTube ou Vimeo en https://</p>'; return; }
       const t = thumb(u);
-      p.innerHTML = t ? `<div class="xpv"><img src="${esc(t)}" alt=""><span class="pl"></span></div>` : '<p class="tag" style="margin:8px 0 0">✓ Vidéo reconnue</p>';
+      p.innerHTML = t ? `<div class="xpv"><img src="${esc(t)}" alt=""><span class="cxpl"></span></div>` : '<p class="tag" style="margin:8px 0 0">✓ Vidéo reconnue</p>';
     };
     g('#xv').oninput = pv; pv();
     g('#xs').onclick = async () => {
-      const d = {name: g('#xn').value.trim(), cat: sel || '', desc: g('#xd').value.trim(), video: g('#xv').value.trim(), comment: g('#xm').value.trim()};
+      const d = {name: g('#xn').value.trim(), cat: sel || '', desc: g('#xd').value.trim(), video: g('#xv').value.trim(), comment: g('#xm').value.trim(), img};
       const err = m => { const e = g('#xe'); e.textContent = m; e.hidden = false; e.scrollIntoView({block: 'nearest'}); };
       if (!d.name) return err('Le nom est obligatoire.');
       if (!d.cat) return err('Choisis un groupe musculaire.');
@@ -763,17 +804,18 @@ async function exercisesPage(cat, eid) {
   function detail() {
     const e = list.find(x => x.id === eid);
     if (!e) { app.innerHTML = '<div class="xd"><p><a class="link" href="#/exercices" style="padding-left:0">‹ Catalogue</a></p><div class="xemp">Cet exercice n’existe plus.</div></div>'; return; }
-    const c = e.cat, g = gOf(c), th = thumb(e.video), hv = okUrl(e.video), more = list.filter(x => x.cat === c && x.id !== e.id).slice(0, 6);
+    const c = e.cat, g = gOf(c), th = exImg(e) || thumb(e.video), hv = okUrl(e.video), more = list.filter(x => x.cat === c && x.id !== e.id).slice(0, 6);
     app.innerHTML = `<div class="xd g${g}">
       <p style="margin:0 0 12px"><a class="link" href="#/exercices/${esc(c)}" style="padding-left:0">‹ ${esc(CATN[c])}</a></p>
       <div class="xk">${esc(CATS[g].g)} · ${esc(CATN[c])}</div><h1>${esc(e.name)}</h1>
-      ${hv ? `<button class="xv" id="xv" type="button" aria-label="Lire la vidéo">${th ? `<img src="${esc(th)}" alt="">` : ''}<span class="pl"></span></button>
+      ${!hv && th ? `<div class="xv st"><img src="${esc(th)}" alt=""></div>` : ''}
+      ${hv ? `<button class="xv" id="xv" type="button" aria-label="Lire la vidéo">${th ? `<img src="${esc(th)}" alt="">` : ''}<span class="cxpl"></span></button>
         <p style="margin:10px 0 0;font-size:14px"><a href="${esc(e.video)}" target="_blank" rel="noopener noreferrer" style="color:var(--gc);font-weight:600">Ouvrir sur le site de la vidéo ↗</a></p>` : ''}
       ${e.desc ? `<section class="xsec"><h2>Description</h2><div class="xtx">${esc(e.desc)}</div></section>` : ''}
       ${e.comment ? `<section class="xsec"><h2>Commentaire</h2><div class="xcal xtx">${esc(e.comment)}</div></section>` : ''}
-      ${!e.desc && !e.comment && !hv ? `<div class="xemp" style="margin-top:20px">Cet exercice n’a pas encore de détails.${isAdmin ? ' Clique sur « Modifier » pour en ajouter.' : ''}</div>` : ''}
+      ${!e.desc && !e.comment && !hv && !th ? `<div class="xemp" style="margin-top:20px">Cet exercice n’a pas encore de détails.${isAdmin ? ' Clique sur « Modifier » pour en ajouter.' : ''}</div>` : ''}
       ${isAdmin ? '<div class="adm"><button class="alt" id="xed">Modifier</button><button class="del" id="xrm">Supprimer</button></div>' : ''}
-      ${more.length ? `<section class="xsec" style="margin-top:34px"><h2>Dans la même catégorie</h2><div class="xl">${more.map(x => card(x, false)).join('')}</div></section>` : ''}</div>`;
+      ${more.length ? `<section class="xsec" style="margin-top:34px"><h2>Dans la même catégorie</h2><div class="cxl">${more.map(x => card(x, false)).join('')}</div></section>` : ''}</div>`;
     const v = $('#xv');
     if (v) v.onclick = () => {
       const i = vidInfo(e.video), src = i && i.yt ? `https://www.youtube-nocookie.com/embed/${i.yt}?autoplay=1&rel=0` : i && i.vi ? `https://player.vimeo.com/video/${i.vi}?autoplay=1` : '';
@@ -790,10 +832,10 @@ async function exercisesPage(cat, eid) {
     let h = '';
     if (t) {
       const r = list.filter(e => [e.name, e.desc, e.comment, CATN[e.cat]].join(' ').toLowerCase().includes(t));
-      h = r.length ? `<div class="xl">${r.map(e => card(e, true)).join('')}</div>` : '<div class="xemp">Aucun exercice trouvé.</div>';
+      h = r.length ? `<div class="cxl">${r.map(e => card(e, true)).join('')}</div>` : '<div class="xemp">Aucun exercice trouvé.</div>';
     } else if (cat) {
       const r = list.filter(e => e.cat === cat);
-      h = r.length ? `<div class="xl g${gOf(cat)}">${r.map(e => card(e, false)).join('')}</div>` : `<div class="xemp">Aucun exercice dans cette catégorie${isAdmin ? ' pour le moment.<br>Ajoute le premier avec le bouton « + Ajouter ».' : ' pour le moment.'}</div>`;
+      h = r.length ? `<div class="cxl g${gOf(cat)}">${r.map(e => card(e, false)).join('')}</div>` : `<div class="xemp">Aucun exercice dans cette catégorie${isAdmin ? ' pour le moment.<br>Ajoute le premier avec le bouton « + Ajouter ».' : ' pour le moment.'}</div>`;
     } else {
       h = CATS.map((g, gi) => `<div class="cgt g${gi}">${esc(g.g)}</div><div class="cg g${gi}">${g.items.map(([id, n]) => { const c = list.filter(e => e.cat === id).length; return `<a href="#/exercices/${id}" class="${c ? '' : 'z'}"><span>${esc(n)}</span><span class="cn"><b>${c}</b>exercice${c > 1 ? 's' : ''}</span></a>`; }).join('')}</div>`).join('');
     }
@@ -804,7 +846,7 @@ async function exercisesPage(cat, eid) {
   const sub = cat ? list.filter(e => e.cat === cat) : list, nv = sub.filter(e => okUrl(e.video)).length;
   const filled = new Set(list.map(e => e.cat)).size;
   app.innerHTML = `${cat ? '<p style="margin:0"><a class="link" href="#/exercices" style="padding-left:0">‹ Catalogue</a></p>' : ''}
-    <div class="xh ${cat ? 'g' + gOf(cat) : ''}"><div class="xtop"><div><div class="xk">${cat ? esc(CATS[gOf(cat)].g) : 'Catalogue'}</div><h1>${cat ? esc(CATN[cat]) : 'Exercices'}</h1></div>${isAdmin ? '<button id="xadd" style="flex:none">+ Ajouter</button>' : ''}</div>
+    <div class="cxh ${cat ? 'g' + gOf(cat) : ''}"><div class="xtop"><div><div class="xk">${cat ? esc(CATS[gOf(cat)].g) : 'Catalogue'}</div><h1>${cat ? esc(CATN[cat]) : 'Exercices'}</h1></div>${isAdmin ? '<button id="xadd" style="flex:none">+ Ajouter</button>' : ''}</div>
       <p class="mute" style="margin:0;max-width:520px">${cat ? 'Tous les exercices de ce groupe musculaire.' : 'Description, vidéo et conseils pour chaque exercice, rangés par groupe musculaire.'}</p>
       <div class="xst"><span>${plur(sub.length, 'exercice')}</span><span>${nv} avec vidéo</span>${cat ? '' : `<span>${plur(filled, 'groupe')} rempli${filled > 1 ? 's' : ''}</span>`}</div>
       <input id="xq" type="search" placeholder="Rechercher un exercice…" aria-label="Rechercher un exercice" autocomplete="off"></div>
