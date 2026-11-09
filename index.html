@@ -317,6 +317,15 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .hxs summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
 .hxs summary::-webkit-details-marker{display:none}.hxs summary:after{content:"›";color:var(--mute);font-size:22px;transition:transform .15s}
 .hxs[open] summary:after{transform:rotate(90deg)}
+.xpb img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid var(--line);background:#fff;cursor:zoom-in}
+.xsec[hidden]{display:none}
+.lbx{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.94);display:flex;flex-direction:column}
+.lbs{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:12px;-webkit-overflow-scrolling:touch}
+.lbs img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in;background:#fff;border-radius:6px}
+.lbx.zoom .lbs{display:block}
+.lbx.zoom .lbs img{max-width:none;max-height:none;width:200%;cursor:zoom-out}
+.lbc{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;z-index:2;width:44px;height:44px;border-radius:50%;padding:0;background:rgba(255,255,255,.18);color:#fff;font-size:20px}
+.lbh{margin:0;padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 10px);text-align:center;color:#bbb;font-size:13px}
 @media(max-width:600px){nav a{font-size:11px;letter-spacing:-.01em}.xtx{font-size:16px}}
 </style>
 </head>
@@ -758,6 +767,41 @@ function readCover(file) {
   });
 }
 
+function readPage(file) {
+  return new Promise((ok, ko) => {
+    if (!file || !/^image\//.test(file.type)) return ko(new Error('Choisis une image.'));
+    const fr = new FileReader();
+    fr.onerror = () => ko(new Error('Lecture impossible.'));
+    fr.onload = () => {
+      const im = new Image();
+      im.onerror = () => ko(new Error('Image non lisible.'));
+      im.onload = () => {
+        let sc = Math.min(1, 1600 / Math.max(im.width, im.height)), q = .85;
+        for (let t = 0; t < 10; t++) {
+          const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.width * sc)); c.height = Math.max(1, Math.round(im.height * sc));
+          const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+          const u = c.toDataURL('image/jpeg', q);
+          if (u.length <= 380000) return ok(u);
+          if (q > .6) q -= .1; else sc *= .85;
+        }
+        ko(new Error('Image trop lourde, essaie-en une plus petite.'));
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+function lightbox(src) {
+  const o = document.createElement('div'); o.className = 'lbx';
+  o.innerHTML = '<button class="lbc" type="button" aria-label="Fermer">✕</button><div class="lbs"><img alt=""></div><p class="lbh">Touche l’image pour zoomer</p>';
+  const im = o.querySelector('img'); im.src = src;
+  const kd = e => { if (e.key === 'Escape') close(); }, close = () => { o.remove(); document.removeEventListener('keydown', kd); };
+  im.onclick = () => o.classList.toggle('zoom');
+  o.querySelector('.lbc').onclick = close;
+  document.addEventListener('keydown', kd);
+  document.body.appendChild(o);
+}
+
 async function exercisesPage(cat, eid) {
   if (cat && !CATN[cat]) cat = '';
   app.classList.add('wide');
@@ -776,11 +820,13 @@ async function exercisesPage(cat, eid) {
 
   function askDel(x) {
     if (!confirm('Supprimer « ' + x.name + ' » du catalogue ?')) return;
-    db.collection('exercises').doc(x.id).delete().then(() => { const h = '#/exercices/' + x.cat; if (location.hash === h) exercisesPage(x.cat); else location.hash = h; }).catch(e => alert(e.message));
+    db.collection('exercisePages').doc(x.id).delete().catch(() => {}).then(() => db.collection('exercises').doc(x.id).delete()).then(() => { const h = '#/exercices/' + x.cat; if (location.hash === h) exercisesPage(x.cat); else location.hash = h; }).catch(e => alert(e.message));
   }
 
-  function form(ex) {
-    let sel = ex ? ex.cat : cat, img = ex ? exImg(ex) : '';
+  async function form(ex) {
+    let sel = ex ? ex.cat : cat, img = ex ? exImg(ex) : '', page = '';
+    if (ex) { try { const d = await db.collection('exercisePages').doc(ex.id).get(); if (d.exists && /^data:image\/jpeg;base64,/.test(d.data().img || '')) page = d.data().img; } catch (e) {} }
+    const page0 = page;
     const el = document.createElement('div'); el.className = 'modal';
     el.innerHTML = `<div class="sheet xf" role="dialog" aria-label="Exercice">
       <div class="xk">${ex ? 'Modifier' : 'Nouvel exercice'}</div><h2 style="margin:2px 0 0">${ex ? esc(ex.name) : 'Ajouter au catalogue'}</h2>
@@ -791,6 +837,7 @@ async function exercisesPage(cat, eid) {
       ${CATS.map((g, i) => `<div class="fgl">${esc(g.g)}</div><div class="fc">${g.items.map(([id, n]) => `<button type="button" class="g${i} ${id === sel ? 'on' : ''}" data-c="${id}">${esc(n)}</button>`).join('')}</div>`).join('')}
       <div class="fs">2 · Pour bien expliquer</div>
       <label>Image de l’exercice <span class="mute">(facultatif)</span></label><div id="xi"></div><input type="file" id="xfi" accept="image/*" hidden>
+      <label>Fiche explicative <span class="mute">(image « page » : schéma, planche, capture…)</span></label><div id="xpz"></div><input type="file" id="xfp" accept="image/*" hidden>
       <label for="xd">Description</label><textarea id="xd" rows="6" maxlength="1000" placeholder="Muscles travaillés, placement, déroulé du mouvement, respiration… Tu peux aller à la ligne pour aérer le texte.">${esc(ex ? ex.desc : '')}</textarea><div class="cnt" id="xdc"></div>
       <label for="xv">Vidéo d’explication <span class="mute">(YouTube ou Vimeo)</span></label><input id="xv" type="url" inputmode="url" value="${esc(ex ? ex.video : '')}" placeholder="https://www.youtube.com/watch?v=…"><div id="xp"></div>
       <div class="fs">3 · Pour aller plus loin</div>
@@ -813,6 +860,17 @@ async function exercisesPage(cat, eid) {
       try { img = await readCover(f); g('#xe').hidden = true; drawImg(); } catch (e) { const x = g('#xe'); x.textContent = e.message; x.hidden = false; }
     };
     drawImg();
+    const drawPage = () => {
+      g('#xpz').innerHTML = page ? `<div class="xiw" style="aspect-ratio:auto;max-height:340px;overflow:auto"><img src="${esc(page)}" alt="" style="position:static;height:auto;object-fit:contain"></div><div class="xia"><button type="button" class="alt" id="xpc">Changer</button><button type="button" class="del" id="xpr">Retirer</button></div>` : '<button type="button" class="xz alt" id="xpc">+ Ajouter une fiche (image)</button>';
+      g('#xpc').onclick = () => g('#xfp').click();
+      if (page) g('#xpr').onclick = () => { page = ''; drawPage(); };
+    };
+    g('#xfp').onchange = async ev => {
+      const f = ev.target.files[0]; ev.target.value = '';
+      if (!f) return;
+      try { page = await readPage(f); g('#xe').hidden = true; drawPage(); } catch (e) { const x = g('#xe'); x.textContent = e.message; x.hidden = false; }
+    };
+    drawPage();
     const cnt = () => { g('#xdc').textContent = g('#xd').value.length + ' / 1000'; };
     g('#xd').oninput = cnt; cnt();
     const pv = () => {
@@ -831,8 +889,10 @@ async function exercisesPage(cat, eid) {
       if (d.video && !okUrl(d.video)) return err('Lien vidéo invalide : https:// et YouTube ou Vimeo uniquement.');
       g('#xs').disabled = true;
       try {
+        let xid = ex ? ex.id : '';
         if (ex) await db.collection('exercises').doc(ex.id).set(d, {merge: true});
-        else await db.collection('exercises').add({...d, createdAt: Date.now()});
+        else xid = (await db.collection('exercises').add({...d, createdAt: Date.now()})).id;
+        if (page !== page0) { const r = db.collection('exercisePages').doc(xid); if (page) await r.set({img: page, updatedAt: Date.now()}); else await r.delete(); }
         close();
         const h = '#/exercices/' + d.cat + (ex ? '/' + ex.id : '');
         if (location.hash === h) exercisesPage(d.cat, ex ? ex.id : ''); else location.hash = h;
@@ -849,6 +909,7 @@ async function exercisesPage(cat, eid) {
       <p style="margin:0 0 12px"><a class="link" href="#/exercices/${esc(c)}" style="padding-left:0">‹ ${esc(CATN[c])}</a></p>
       <div class="xk">${esc(CATS[g].g)} · ${esc(CATN[c])}</div><h1>${esc(e.name)}</h1>
       ${!hv && th ? `<div class="xv st"><img src="${esc(th)}" alt=""></div>` : ''}
+      <section class="xsec" id="xpg" hidden><h2>Fiche explicative</h2><div class="xpb"></div><p class="mute" style="font-size:13px;margin:8px 0 0">Touche l’image pour l’agrandir.</p></section>
       ${hv ? `<button class="xv" id="xv" type="button" aria-label="Lire la vidéo">${th ? `<img src="${esc(th)}" alt="">` : ''}<span class="cxpl"></span></button>
         <p style="margin:10px 0 0;font-size:14px"><a href="${esc(e.video)}" target="_blank" rel="noopener noreferrer" style="color:var(--gc);font-weight:600">Ouvrir sur le site de la vidéo ↗</a></p>` : ''}
       ${e.desc ? `<section class="xsec"><h2>Description</h2><div class="xtx">${esc(e.desc)}</div></section>` : ''}
@@ -856,6 +917,12 @@ async function exercisesPage(cat, eid) {
       ${!e.desc && !e.comment && !hv && !th ? `<div class="xemp" style="margin-top:20px">Cet exercice n’a pas encore de détails.${isAdmin ? ' Clique sur « Modifier » pour en ajouter.' : ''}</div>` : ''}
       ${isAdmin ? '<div class="adm"><button class="alt" id="xed">Modifier</button><button class="del" id="xrm">Supprimer</button></div>' : ''}
       ${more.length ? `<section class="xsec" style="margin-top:34px"><h2>Dans la même catégorie</h2><div class="cxl">${more.map(x => card(x, false)).join('')}</div></section>` : ''}</div>`;
+    db.collection('exercisePages').doc(e.id).get().then(d => {
+      const u = d.exists ? d.data().img : '', box = $('#xpg');
+      if (!box || !/^data:image\/jpeg;base64,/.test(u || '')) return;
+      const im = new Image(); im.alt = 'Fiche explicative : ' + e.name; im.src = u; im.onclick = () => lightbox(u);
+      box.querySelector('.xpb').appendChild(im); box.hidden = false;
+    }).catch(() => {});
     const v = $('#xv');
     if (v) v.onclick = () => {
       const i = vidInfo(e.video), src = i && i.yt ? `https://www.youtube-nocookie.com/embed/${i.yt}?autoplay=1&rel=0` : i && i.vi ? `https://player.vimeo.com/video/${i.vi}?autoplay=1` : '';
