@@ -503,7 +503,7 @@ async function historyPage() {
   app.innerHTML = `<h1>Historique</h1>${seg('hist')}<input id="hq" type="search" placeholder="Rechercher une séance ou un exercice" aria-label="Rechercher"><div id="hl" style="margin-top:8px"><p class="mute">Chargement…</p></div>`;
   const [ss, logs] = await Promise.all([all(), logsOf(user.uid)]);
   const by = {}; logs.forEach(l => { by[l.sessionId] = l; });
-  const rows = ss.map(x => {
+  let rows = ss.map(x => {
     const l = by[x.id]; if (!l) return null;
     const n = x.exercises.filter((_, i) => l.done && l.done[i]).length;
     return n || Object.keys(l.w || {}).length || (l.note || '').trim() ? {s: x, l, n} : null;
@@ -516,8 +516,12 @@ async function historyPage() {
       const mo = new Date(x.date + 'T12:00').toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'});
       const head = mo !== cur ? `<div class="hxm">${esc(mo)}</div>` : ''; cur = mo;
       const body = x.exercises.map((e, i) => { const st = l.sets && l.sets[i]; const t = st ? st.map(fmtSet).join(' · ') : String((l.w || {})[i] || '').trim(); return `<div class="hxr"><span>${l.done && l.done[i] ? '✓' : '○'} ${esc(e.name)}</span><span>${esc(t || '—')}</span></div>`; }).join('');
-      return `${head}<details class="card hxs"><summary><span><b>${esc(x.title)}</b><br><span class="mute">${esc(fmt(x.date))} · ${n}/${x.exercises.length} faits</span></span></summary>${body}${l.note ? `<p class="mute"><i>« ${esc(l.note)} »</i></p>` : ''}<p><a class="btn alt" href="#/seance/${esc(x.id)}">Ouvrir / modifier la séance</a></p></details>`;
+      return `${head}<details class="card hxs"><summary><span><b>${esc(x.title)}</b><br><span class="mute">${esc(fmt(x.date))} · ${n}/${x.exercises.length} faits</span></span></summary>${body}${l.note ? `<p class="mute"><i>« ${esc(l.note)} »</i></p>` : ''}<p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/seance/${esc(x.id)}">Ouvrir / modifier la séance</a><button class="del" data-hdel="${esc(x.id)}">Supprimer de mon historique</button></p></details>`;
     }).join('');
+    $('#hl').querySelectorAll('[data-hdel]').forEach(b => b.onclick = async () => {
+      if (!confirm('Effacer tes charges, tes exercices cochés et ton ressenti pour cette séance ?\nLa séance reste dans le calendrier.')) return;
+      try { await db.collection('logs').doc(b.dataset.hdel + '_' + user.uid).delete(); histCache = {}; rows = rows.filter(r => r.s.id !== b.dataset.hdel); draw(); } catch (e) { alert(e.message); }
+    });
   };
   $('#hq').oninput = draw; draw();
 }
@@ -988,17 +992,34 @@ async function home() {
 }
 
 
+async function purgeSessions(ids) {
+  for (const sid of ids) {
+    const q = await db.collection('logs').where('sessionId', '==', sid).get();
+    for (let i = 0; i < q.docs.length; i += 400) { const bt = db.batch(); q.docs.slice(i, i + 400).forEach(d => bt.delete(d.ref)); await bt.commit(); }
+    await db.collection('sessions').doc(sid).delete();
+  }
+  histCache = {};
+}
+const delMsg = n => `Supprimer définitivement ${n > 1 ? n + ' séances' : 'cette séance'} ?\nLe suivi des inscrits (charges, ressentis) ${n > 1 ? 'sur ces séances' : 'sur cette séance'} sera supprimé aussi. Action irréversible.`;
+
 async function adminList() {
-  const list = await all();
-  app.innerHTML = `<h1>Gérer les séances</h1><p class="row"><a class="btn" href="#/admin/new">+ Nouvelle séance</a><a class="btn alt" href="#/inscrits">Inscrits</a></p>` + (list.length ? list.map(s =>
-    `<div class="card"><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span>
+  const list = await all(), t = today(), sel = new Set();
+  app.innerHTML = `<h1>Gérer les séances</h1><p class="row"><a class="btn" href="#/admin/new">+ Nouvelle séance</a><a class="btn alt" href="#/inscrits">Inscrits</a></p>` +
+    (list.length ? `<p class="row" style="flex-wrap:wrap"><button class="alt" id="sall">Tout sélectionner</button><button class="alt" id="spast">Sélectionner les séances passées</button><button class="alt" id="snone" hidden>Tout désélectionner</button><button class="del" id="sbulk" hidden></button></p>` +
+    list.map(s => `<div class="card"><label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer"><input type="checkbox" data-sel="${esc(s.id)}" aria-label="Sélectionner ${esc(s.title)}" style="width:22px;height:22px;flex:none;margin:2px 0 0;padding:0"><span><b>${esc(s.title)}</b><br><span class="mute">${fmt(s.date)} · ${s.exercises.length} exercices</span></span></label>
     <p class="row" style="margin:10px 0 0;flex-wrap:wrap"><a class="btn alt" href="#/seance/${s.id}">Voir le suivi</a><a class="btn alt" href="#/admin/${s.id}">Modifier</a><button class="alt" data-dup="${s.id}">Copier…</button><button class="del" data-del="${s.id}">Supprimer</button></p></div>`).join('')
     : `<p class="mute">Aucune séance créée.</p>`);
   const by = id => list.find(s => s.id === id);
+  const run = async ids => { try { await purgeSessions(ids); } catch (e) { alert(e.message); } adminList(); };
   app.querySelectorAll('[data-dup]').forEach(b => b.onclick = () => copyModal(by(b.dataset.dup)));
-  app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (confirm('Supprimer cette séance ?')) { await db.collection('sessions').doc(b.dataset.del).delete(); adminList(); }
-  });
+  app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { const x = by(b.dataset.del); if (confirm('« ' + x.title + ' » (' + fmt(x.date) + ')\n' + delMsg(1))) run([x.id]); });
+  if (!list.length) return;
+  const refresh = () => { const n = sel.size; $('#sbulk').hidden = !n; $('#snone').hidden = !n; $('#sbulk').textContent = `Supprimer la sélection (${n})`; app.querySelectorAll('[data-sel]').forEach(c => { c.checked = sel.has(c.dataset.sel); }); };
+  app.querySelectorAll('[data-sel]').forEach(c => c.onchange = () => { c.checked ? sel.add(c.dataset.sel) : sel.delete(c.dataset.sel); refresh(); });
+  $('#sall').onclick = () => { list.forEach(x => sel.add(x.id)); refresh(); };
+  $('#spast').onclick = () => { sel.clear(); list.filter(x => x.date < t).forEach(x => sel.add(x.id)); refresh(); if (!sel.size) alert('Aucune séance passée.'); };
+  $('#snone').onclick = () => { sel.clear(); refresh(); };
+  $('#sbulk').onclick = () => { const ids = [...sel]; if (ids.length && confirm(delMsg(ids.length))) run(ids); };
 }
 
 async function viewSession(id, label) {
@@ -1049,7 +1070,7 @@ async function viewSession(id, label) {
       ${okUrl(e.video) ? `<a class="vid" href="${esc(e.video)}" target="_blank" rel="noopener noreferrer">▶ Voir la vidéo</a>` : ''}</article>`).join('')}</div>
     <label for="note">Mon ressenti</label><textarea id="note" rows="3">${esc(mine.note)}</textarea>
     <p><button id="save">Enregistrer</button> <span id="ok" class="tag"></span></p>
-    ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/admin/${id}">Modifier la séance</a><button class="alt" id="cpy">Copier…</button></p>` : ''}`;
+    ${isAdmin ? `<h2>Suivi</h2><div id="track" class="mute">Chargement…</div><p class="row" style="flex-wrap:wrap"><a class="btn alt" href="#/admin/${id}">Modifier la séance</a><button class="alt" id="cpy">Copier…</button><button class="del" id="sdel">Supprimer la séance</button></p>` : ''}`;
     app.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { mine.done[c.dataset.i] = c.checked; if (c.checked) { const ex = s.exercises[c.dataset.i], r = parseRest(ex.rest); if (r) startRest(r, ex.name); } save(false); });
     app.querySelectorAll('[data-sw]').forEach(inp => inp.oninput = () => { upd(inp.dataset.sw.split(':')[0]); auto(); });
     app.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => {
@@ -1069,6 +1090,7 @@ async function viewSession(id, label) {
     $('#save').onclick = () => save(true);
     fill();
     if (isAdmin) $('#cpy').onclick = () => copyModal(s);
+    if (isAdmin) $('#sdel').onclick = async () => { if (!confirm('« ' + s.title + ' » (' + fmt(s.date) + ')\n' + delMsg(1))) return; try { await purgeSessions([id]); location.hash = '#/admin'; } catch (e) { alert(e.message); } };
     if (isAdmin) db.collection('logs').where('sessionId', '==', id).get().then(q => {
       $('#track').innerHTML = q.empty ? 'Personne n’a encore validé d’exercice.' : q.docs.map(d => {
         const l = d.data(), ok = s.exercises.map((e, i) => [e, i]).filter(([, i]) => l.done && l.done[i]);
