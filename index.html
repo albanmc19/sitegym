@@ -335,6 +335,7 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .ab{max-width:90%;padding:10px 14px;border-radius:16px;margin:8px 0;background:var(--card);border:1px solid var(--line);font-size:15px}
 .ab.u{margin-left:auto;background:var(--acc);color:var(--acc-ink);border:0}
 .ab p{margin:0 0 6px}.ab ol,.ab ul{margin:4px 0 6px;padding-left:20px}.ab a{color:var(--acc);font-weight:600}
+.ab a.btn{color:var(--acc-ink);margin-top:6px;padding:8px 14px;font-size:14px}.ab .bar{margin:3px 0 9px}.ab .mute{font-size:13px}
 .ac{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.ac button{padding:7px 12px;font-size:14px}
 </style>
 </head>
@@ -1324,7 +1325,7 @@ async function getHistory(uid, fresh) {
       const w = String((l.w || {})[i] || '').trim() || (has ? sumSets(st) : '');
       if (!w) return;
       const nums = has ? st.map(parseLoad).filter(x => x != null) : [];
-      entries.push({date: s.date, id: s.id, title: s.title, name: e.name, key: e.name.trim().toLowerCase(), w, sets: has ? st : null, num: nums.length ? Math.max(...nums) : parseLoad(w)});
+      entries.push({date: s.date, id: s.id, title: s.title, name: e.name, key: e.name.trim().toLowerCase(), w, sets: has ? st : null, num: nums.length ? Math.max(...nums) : parseLoad(w), reps: parseInt(e.reps) || null, nsets: parseInt(e.sets) || null});
     });
   });
   const by = (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
@@ -1602,6 +1603,7 @@ const parseLines = t => t.split('\n').map(l => l.trim()).filter(Boolean).slice(0
 async function editSession(id, preset) {
   let s = {title: '', date: /^\d{4}-\d{2}-\d{2}$/.test(preset || '') ? preset : today(), exercises: [blank()]};
   if (id) { const d = await db.collection('sessions').doc(id).get(); if (d.exists) s = d.data(); }
+  else { try { const d = JSON.parse(sessionStorage.getItem('astDraft') || 'null'); if (d && Array.isArray(d.exercises)) { s.title = String(d.title || '').slice(0, 80); s.exercises = d.exercises; } sessionStorage.removeItem('astDraft'); } catch (e) {} }
   s.rep = 1; s.bulk = '';
   const existing = await all(), known = new Set(DEFAULTS);
   existing.forEach(x => x.exercises.forEach(e => known.add(e.name)));
@@ -1919,6 +1921,7 @@ const li = a => a.map(x => '<li>' + esc(x) + '</li>').join('');
 async function astReply(raw) {
   const t = nz(raw);
   if (ctx.q) { const q = ctx.q; if (q.opts.some(o => nz(o) === t)) { ctx.q = null; return {h: nz(q.ans) === t ? '✅ Bravo, c’est bien ça !' : '❌ Presque : c’est <b>' + esc(q.ans) + '</b>.', chips: exChips()}; } ctx.q = null; }
+  const pro = await astPro(raw, t); if (pro) return pro;
   const found = astFind(raw, ctx.items); if (found) ctx.ex = found;
   const it = found || ctx.ex, k = (INT.find(([, r]) => r.test(t)) || [])[0];
   if (k !== 'pain' && astIsData(t)) return astData(raw, t);
@@ -1955,7 +1958,7 @@ async function openAst() {
   document.body.appendChild(o);
   const g = s => o.querySelector(s), close = () => { o.remove(); document.removeEventListener('keydown', kd); }, kd = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', kd); g('#ax').onclick = close; o.onclick = e => { if (e.target === o) close(); };
-  g('#am').onclick = e => { if (e.target.closest('a[href^="#"]')) close(); };
+  g('#am').onclick = e => { if (e.target.closest('[data-draft]') && ctx.draft) { try { sessionStorage.setItem('astDraft', JSON.stringify(ctx.draft)); } catch (x) {} } if (e.target.closest('a[href^="#"]')) close(); };
   const say = (h, u) => { const d = document.createElement('div'); d.className = 'ab' + (u ? ' u' : ''); d.innerHTML = h; g('#am').appendChild(d); g('#am').scrollTop = 1e9; };
   const chips = a => { g('#ac').innerHTML = ''; a.forEach(([l, t]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'alt'; b.textContent = l; b.onclick = () => send(t); g('#ac').appendChild(b); }); };
   const send = async txt => { txt = String(txt || '').trim().slice(0, 200); if (!txt) return; say(esc(txt), true); g('#ai').value = ''; let r; try { r = await astReply(txt); } catch (e) { r = {h: 'Je n’ai pas pu lire tes données pour le moment.', chips: []}; } say(r.h); chips(r.chips || []); };
@@ -1968,7 +1971,7 @@ async function openAst() {
   say(ctx.sess ? '<p>Salut ' + esc(nm(user).split(' ')[0]) + ' ! Ta séance « ' + esc(ctx.sess.title) + ' » compte ' + ctx.sess.ex.length + ' exercice' + (ctx.sess.ex.length > 1 ? 's' : '') + '. Sur lequel veux-tu de l’aide ?</p>' : '<p>Salut ' + esc(nm(user).split(' ')[0]) + ' ! Je peux t’expliquer un mouvement, te poser des questions pour vérifier ta technique et te conseiller sur la charge. Quel exercice ?</p>');
   let ex2 = [];
   try { const H = await getHistory(user.uid), c = {}; H.entries.forEach(e => { c[e.name] = (c[e.name] || 0) + 1; }); const top = Object.keys(c).sort((a, b) => c[b] - c[a])[0]; if (top) ex2 = [chip('Mon record ' + top), chip('Ma dernière séance'), chip('Combien de séances cette semaine ?')]; } catch (e) {}
-  chips(ex2.concat(exChips(), [chip('Échauffement'), chip('Teste-moi')])); g('#ai').focus();
+  chips(ex2.concat(exChips(), [chip('Bilan de la semaine'), chip('Ma série'), chip('Équilibre musculaire'), chip('Que sais-tu faire ?'), chip('Teste-moi')])); g('#ai').focus();
 }
 
 // ---- Assistant : questions sur MES données (historique des charges) ----
@@ -2004,6 +2007,117 @@ async function astData(raw, t) {
   if (wantHist) { const L = EP.slice(-8), a = L[0], z = L[L.length - 1], tr = a.num != null && z.num != null && L.length > 1 ? '<p>Évolution : ' + a.num + ' → ' + z.num + ' (' + (z.num >= a.num ? '+' : '') + Math.round((z.num - a.num) * 10) / 10 + ').</p>' : ''; return {h: '<p>Historique ' + nm + (lab || '') + ' :</p><ul>' + L.map(e => '<li>' + esc(sd(e.date)) + ' : ' + esc(wl(e)) + '</li>').join('') + '</ul>' + tr, chips: exChips()}; }
   if (wantMax) { const b = byNum(EP); if (!b) return {h: '<p>Je n’ai pas de charge chiffrée pour ' + nm + (lab || '') + '.</p>', chips: exChips()}; const all = byNum(E); return {h: '<p>Ton record sur ' + nm + (lab || '') + ' : ' + row(b) + '</p>' + (P.lab && all && all.num > b.num ? '<p>Record de tous les temps : ' + row(all) + '</p>' : ''), chips: exChips()}; }
   return {h: '<p>Dernière fois sur ' + nm + (lab || '') + ' : ' + row(EP[EP.length - 1]) + '</p>', chips: exChips()};
+}
+
+// ---- Assistant : 10 fonctions avancées (calculs 100 % locaux) ----
+const r25 = x => Math.round(x / 2.5) * 2.5, N = x => fmtNum(x), li2 = a => '<ul>' + a.map(x => '<li>' + x + '</li>').join('') + '</ul>';
+const nums = s => [...String(s).replace(/,/g, '.').matchAll(/\d+(?:\.\d+)?/g)].map(m => +m[0]);
+const catOf = n => { const it = ctx.items.find(x => slug(x.name) === slug(n)); if (it && it.cat) return it.cat; const k = LIB.find(l => slug(l.n) === slug(n) || l.a.some(a => slug(a) === slug(n))); return k ? k.c : ''; };
+const FAM = [['Poussée', ['pec', 'del', 'tri']], ['Tirage', ['dos', 'tra', 'omo', 'bra']], ['Jambes', ['qua', 'ish', 'add', 'mol']], ['Tronc', ['abd', 'lom']]];
+const nSets = e => (e.sets ? e.sets.filter(Boolean).length : 0) || e.nsets || 3;
+const tonOf = e => { const l = e.sets ? e.sets.map(parseLoad).filter(v => v != null) : (e.num != null ? Array(e.nsets || 1).fill(e.num) : []); return e.reps ? l.reduce((s, v) => s + v * e.reps, 0) : 0; };
+const WK = () => 7 - (new Date().getDay() + 6) % 7;
+const HELP = '<p>Voici ce que je sais faire en plus des fiches d’exercices :</p><ol>' + ['calculer ton <b>1RM</b> (« 1RM squat 100 kg x 5 »)', 'donner les <b>disques</b> à charger (« disques pour 82,5 kg »)', 'planifier un <b>échauffement</b> chiffré (« échauffement squat 100 kg »)', 'suggérer ta <b>charge du jour</b> (« charge conseillée squat »)', 'détecter tes <b>plateaux</b> (« est-ce que je stagne ? »)', 'faire ton <b>bilan</b> et ton tonnage (« bilan de la semaine »)', 'analyser ton <b>équilibre musculaire</b>', 'suivre ta <b>série</b> et ton objectif (« objectif 4 séances par semaine »)', 'calculer tes <b>protéines et calories</b> (« protéines pour 78 kg, sèche »)', '<b>générer une séance</b> (« génère une séance dos 45 min »)'].map(x => '<li>' + x + '</li>').join('') + '</ol>';
+async function astHx(raw) {
+  const H = await getHistory(user.uid), it = astFind(raw, ctx.items) || ctx.ex; if (it) ctx.ex = it;
+  const n0 = it ? nz(it.name) : '', al = it ? (kbOf(it) || {a: []}).a.map(nz) : [];
+  const E = it ? H.entries.filter(e => { const a = nz(e.name); return a === n0 || a.includes(n0) || n0.includes(a) || al.includes(a); }) : [];
+  return {H, it, E};
+}
+async function astPro(raw, t) {
+  if (INT[0][1].test(t)) return null;
+  const R = raw.toLowerCase().replace(/,/g, '.'), ns = nums(R), O = (h, c) => ({h, chips: c || exChips()}), named = !!astFind(raw, ctx.items);
+  // 0. Aide
+  if (/\baide\b|que sais tu|que peux tu|tu sais faire|fonctionnalite/.test(t) && !named) return O(HELP, [chip('Bilan de la semaine'), chip('Équilibre musculaire'), chip('Génère une séance jambes 45 min'), chip('Protéines et calories'), chip('Est-ce que je stagne ?')]);
+  // 1. 1RM
+  if (/\b1 ?rm\b|rep max|max theorique/.test(t)) {
+    const x = await astHx(raw), Q = R.replace(/\b1 ?rm\b/g, ''), m = /(\d+(?:\.\d+)?)\s*(?:kg)?\s*(?:x|×|\*|fois|reps?)\s*(\d+)/.exec(Q);
+    let kg = m ? +m[1] : null, rp = m ? +m[2] : null;
+    if (!m) { const q = nums(Q); if (q.length >= 2) { kg = q[0]; rp = q[1]; } else { const b = x.E.filter(e => e.num != null && e.reps).map(e => [e.num, e.reps]).sort((a, b) => b[0] * (1 + b[1] / 30) - a[0] * (1 + a[1] / 30))[0]; if (b) { kg = b[0]; rp = b[1]; } } }
+    if (!kg || !rp) return O('<p>Donne-moi une charge et un nombre de répétitions, par ex. « 1RM squat 100 kg x 5 ».</p>');
+    const ep = kg * (1 + rp / 30), br = rp < 37 ? kg * 36 / (37 - rp) : ep, e1 = rp === 1 ? kg : (ep + br) / 2;
+    return O('<p>1RM estimé' + (x.it ? ' (' + esc(x.it.name) + ')' : '') + ' à partir de ' + N(kg) + ' kg × ' + rp + ' : <b>' + N(r25(e1)) + ' kg</b>.</p>' + li2([[95, 2], [90, 4], [85, 6], [80, 8], [75, 10], [70, 12], [65, 15], [60, 20]].map(([p, r]) => p + ' % → ' + N(r25(e1 * p / 100)) + ' kg (≈ ' + r + ' reps)')) + '<p class="mute">Estimation fiable jusqu’à ~10 reps' + (rp > 12 ? ' (au-delà de 12, très approximative)' : '') + '. Ne teste jamais un vrai max sans pareur.</p>');
+  }
+  // 2. Disques
+  if (/disque|plaque|charger la barre|monter la barre/.test(t) && ns.length) {
+    const bm = /barre (?:de |a )?(\d+)/.exec(R), bar = bm ? +bm[1] : 20, tot = ns.find(v => v > bar);
+    if (!tot) return O('<p>Quelle charge totale veux-tu (barre de ' + bar + ' kg comprise) ? Ex. « disques pour 82,5 kg ».</p>');
+    let side = (tot - bar) / 2; const used = [];
+    [25, 20, 15, 10, 5, 2.5, 1.25].forEach(p => { const k = Math.floor(side / p + 1e-9); if (k) { used.push(k + ' × ' + N(p) + ' kg'); side -= k * p; } });
+    return O('<p>Pour <b>' + N(tot) + ' kg</b> (barre ' + bar + ' kg) : par côté <b>' + (used.join(' + ') || 'aucun disque') + '</b>.</p>' + (side > 0.01 ? '<p>Avec les disques standards, le plus proche réalisable est ' + N(tot - side * 2) + ' kg.</p>' : '') + '<p class="mute">Gros disques côté manchon, colliers de serrage en place.</p>');
+  }
+  // 3. Échauffement chiffré
+  if (/echauff|warm/.test(t)) {
+    const x = await astHx(raw), km = /(\d+(?:\.\d+)?)\s*kg/.exec(R); let w = km ? +km[1] : ns[0];
+    if (!w && x.E.length) w = x.E[x.E.length - 1].num;
+    if (!w) return null;
+    return O('<p>Échauffement' + (x.it && named ? ' ' + esc(x.it.name) : '') + ' pour une charge de travail de <b>' + N(w) + ' kg</b> :</p><ol>' + [[.4, '8–10 reps'], [.6, '5 reps'], [.75, '3 reps'], [.9, '1–2 reps']].map(([p, r]) => '<li>' + N(r25(w * p)) + ' kg × ' + r + '</li>').join('') + '</ol><p>Repos 45–90 s entre les montées, puis attaque tes séries à ' + N(w) + ' kg, après 5 min de cardio léger.</p>');
+  }
+  // 4. Charge conseillée (surcharge progressive)
+  if (/(quelle|combien|conseille|suggere|propose).{0,20}(charge|kg|poids)|charge (conseill|suggere|du jour|prochaine|aujourd)|prochaine (charge|fois)/.test(t)) {
+    const x = await astHx(raw); if (!x.it) return O('<p>Pour quel exercice ? Écris son nom.</p>');
+    const E = x.E.filter(e => e.num != null), nm = '<b>' + esc(x.it.name) + '</b>';
+    if (!E.length) return O('<p>Aucune charge enregistrée pour ' + nm + '. Commence avec une charge que tu peux soulever 12 fois proprement, puis note-la dans la séance.</p>');
+    const l = E[E.length - 1], p = E[E.length - 2], st = ['qua', 'ish', 'mol', 'add', 'lom'].includes(catOf(x.it.name)) ? 5 : 2.5, flat = E.length >= 3 && E.slice(-3).every(e => e.num === l.num);
+    const [rec, why] = flat ? [l.num + st, 'tu es resté à ' + N(l.num) + ' kg sur 3 séances : tente ce palier, ou ajoute 1 rep par série si c’est trop dur.'] : p && l.num > p.num ? [l.num, 'tu viens de monter : consolide cette charge et vise +1 rep par série.'] : p && l.num < p.num ? [p.num, 'tu avais fait mieux avant : reviens à ce niveau (sommeil, fatigue ?).'] : [l.num + st, 'valide d’abord toutes tes reps à ' + N(l.num) + ' kg ; si c’est facile (1–2 reps en réserve), passe à ce palier.'];
+    return O('<p>' + nm + ' — dernière charge : <b>' + N(l.num) + ' kg</b> (' + esc(fmt(l.date)) + ').</p><p>Charge conseillée : <b>' + N(rec) + ' kg</b> — ' + why + '</p>');
+  }
+  // 5. Plateaux
+  if (/stagn|plateau|bloque|n avance plus|progresse plus|ne progresse/.test(t)) {
+    const x = await astHx(raw), by = {}; x.H.entries.forEach(e => { if (e.num != null) (by[e.key] = by[e.key] || []).push(e); });
+    const L = (named && x.it ? [x.E.filter(e => e.num != null)] : Object.values(by)).filter(a => a.length >= 5).map(a => { const n = a.map(e => e.num), rec = Math.max(...n.slice(0, -4)); return Math.max(...n.slice(-4)) <= rec ? '<b>' + esc(a[0].name) + '</b> : ton record de ' + N(rec) + ' kg n’a pas été dépassé sur les 4 dernières séances' : null; }).filter(Boolean);
+    return O(L.length ? '<p>Plateaux détectés :</p>' + li2(L.slice(0, 6)) + '<p>Pistes : une semaine plus légère (−10 %), une autre fourchette de reps, une variante, plus de sommeil et de protéines. Ajoute +1 rep par série avant de monter la charge.</p>' : '<p>Aucun plateau net détecté (il faut au moins 5 séances par exercice pour en juger).</p>');
+  }
+  // 6. Bilan de période + records
+  if (/bilan|recap|tonnage|volume (total|hebdo)|ma semaine|resume de (ma|mon|la)/.test(t)) {
+    const H = await getHistory(user.uid), td = today(); let P = astPeriod(t); if (!P.lab) P = {a: addDays(td, -6), b: td, lab: 'sur les 7 derniers jours'};
+    const b = P.b > td ? td : P.b, span = Math.round((new Date(b + 'T12:00') - new Date(P.a + 'T12:00')) / 864e5) + 1, pa = addDays(P.a, -span), pb = addDays(P.a, -1);
+    const S = (a, z) => { const D = H.done.filter(x => x.date >= a && x.date <= z), E = H.entries.filter(x => x.date >= a && x.date <= z); return {s: D.length, ex: D.reduce((n, d) => n + d.n, 0), ton: Math.round(E.reduce((n, e) => n + tonOf(e), 0))}; };
+    const c = S(P.a, b), p = S(pa, pb), dl = (a, z) => z ? (a >= z ? '+' : '−') + Math.abs(Math.round((a - z) / z * 100)) + ' %' : '', prior = {}, pr = [];
+    H.entries.filter(e => e.date < P.a && e.num != null).forEach(e => { prior[e.key] = Math.max(prior[e.key] || 0, e.num); });
+    H.entries.filter(e => e.date >= P.a && e.date <= b && e.num != null && prior[e.key] != null && e.num > prior[e.key]).forEach(e => { prior[e.key] = e.num; pr.push(e); });
+    const prs = [...new Map(pr.map(e => [e.key, e])).values()].slice(0, 5);
+    return O('<p>Bilan ' + esc(P.lab) + ' :</p>' + li2(['<b>' + c.s + '</b> séance' + (c.s > 1 ? 's' : '') + ' terminée' + (c.s > 1 ? 's' : '') + (p.s ? ' (' + dl(c.s, p.s) + ' vs période précédente)' : ''), '<b>' + c.ex + '</b> exercices validés', 'Tonnage estimé : <b>' + c.ton.toLocaleString('fr-FR') + ' kg</b>' + (p.ton ? ' (' + dl(c.ton, p.ton) + ')' : '')]) + (prs.length ? '<p>🏆 Nouveaux records :</p>' + li2(prs.map(e => esc(e.name) + ' : ' + N(e.num) + ' kg')) : '') + '<p class="mute">Tonnage = charges notées × reps prévues dans la séance.</p>');
+  }
+  // 7. Équilibre musculaire
+  if (/equilibre|desequilibre|repartition musc|muscles? (negliges|oublies)|poussee|push pull/.test(t)) {
+    const H = await getHistory(user.uid), td = today(); let P = astPeriod(t); if (!P.lab) P = {a: addDays(td, -29), b: td, lab: 'sur les 30 derniers jours'};
+    const v = {}; H.entries.filter(e => e.date >= P.a && e.date <= P.b).forEach(e => { const c = catOf(e.name); if (c) v[c] = (v[c] || 0) + nSets(e); });
+    const fam = FAM.map(([n, cs]) => [n, cs.reduce((s, c) => s + (v[c] || 0), 0)]), tot = fam.reduce((s, f) => s + f[1], 0);
+    if (!tot) return O('<p>Pas assez de données ' + esc(P.lab) + ' pour analyser ton équilibre.</p>');
+    const g = n => fam.find(f => f[0] === n)[1], tips = [];
+    if ((g('Poussée') && g('Tirage') / g('Poussée') < .8) || !g('Tirage')) tips.push('Ajoute du <b>tirage</b> (rowing, tractions) : vise au moins autant de tirage que de poussée pour protéger tes épaules.');
+    if ((g('Tirage') && g('Poussée') / g('Tirage') < .6) || !g('Poussée')) tips.push('Tu pousses peu par rapport au tirage : ajoute un exercice de poussée.');
+    if (g('Jambes') / tot < .2) tips.push('Les <b>jambes</b> sont sous-travaillées (moins de 20 % du volume).');
+    if (!g('Tronc')) tips.push('Aucun travail du <b>tronc</b> : ajoute du gainage.');
+    return O('<p>Séries par groupe ' + esc(P.lab) + ' :</p>' + fam.map(([n, k]) => '<div>' + n + ' — <b>' + k + '</b> séries (' + Math.round(k / tot * 100) + ' %)</div><div class="bar"><i style="width:' + Math.round(k / tot * 100) + '%"></i></div>').join('') + (tips.length ? li2(tips) : '<p>✅ Ta répartition est équilibrée.</p>'));
+  }
+  // 8. Série, régularité, objectif hebdo
+  if (!named && /\b(serie|streak|regularite|assiduite|rythme|objectif|habitude|constance)\b/.test(t)) {
+    const gm = /\b([1-7])\b.*semaine/.exec(t); if (gm && /objectif|vise|but/.test(t)) spSet('wgoal', +gm[1]);
+    const H = await getHistory(user.uid), S = computeStats(H.done), goal = +spGet('wgoal') || 3, left = Math.max(0, goal - S.week), dl = WK();
+    return O('<p>🔥 Série en cours : <b>' + S.cur + ' jour' + (S.cur > 1 ? 's' : '') + '</b> (record ' + S.best + ') · <b>' + S.ws + ' semaine' + (S.ws > 1 ? 's' : '') + '</b> d’affilée avec au moins une séance.</p><p>Objectif : <b>' + S.week + ' / ' + goal + '</b> séances cette semaine' + (left ? ' — il t’en reste ' + left + ' en ' + dl + ' jour' + (dl > 1 ? 's' : '') + (left > dl ? ' (ça fait beaucoup : ajuste ton objectif si besoin)' : '') + '.' : ' — objectif atteint, bravo ! 🎉') + '</p><p>8 dernières semaines : <span style="letter-spacing:2px">' + S.bars.map(b => '▁▂▃▄▅▆▇█'[Math.min(7, b.n)]).join('') + '</span></p><p class="mute">Pour changer l’objectif : « objectif 4 séances par semaine ».</p>');
+  }
+  // 9. Nutrition : protéines, calories, macros
+  if (/proteine|calorie|kcal|macros?\b|nutrition|alimentation|regime|prise de masse|seche|maigrir|perdre (du|de|\d)|grossir/.test(t)) {
+    let w = [...R.matchAll(/(\d{2,3}(?:\.\d)?)\s*kg/g)].map(m => +m[1]).find(v => v >= 35 && v <= 250);
+    if (!w) { try { const r = (await db.collection('weights').where('uid', '==', user.uid).get()).docs.map(d => d.data()).sort((a, b) => a.date < b.date ? 1 : -1)[0]; if (r) w = r.kg; } catch (e) {} }
+    if (!w) return O('<p>Dis-moi ton poids (ou enregistre-le dans « Poids »), par ex. « protéines pour 78 kg ».</p>');
+    const h = +((/(\d{3})\s*cm/.exec(R) || [])[1]), a = +((/(\d{2})\s*ans/.exec(R) || [])[1]), f = /\b(femme|fille)\b/.test(t), full = h && a && /\b(femme|fille|homme|garcon)\b/.test(t);
+    const tdee = full ? (10 * w + 6.25 * h - 5 * a + (f ? -161 : 5)) * 1.55 : w * 33, g = /seche|maigrir|perdre|gras/.test(t) ? 's' : /masse|grossir|prendre|muscle/.test(t) ? 'm' : 'e';
+    const kc = Math.round((tdee + (g === 'm' ? 300 : g === 's' ? -Math.min(400, tdee * .2) : 0)) / 50) * 50, pr = Math.round(w * (g === 's' ? 2.2 : g === 'm' ? 2 : 1.8) / 5) * 5, fa = Math.round(w * .9 / 5) * 5, ch = Math.max(0, Math.round((kc - pr * 4 - fa * 9) / 20) * 5);
+    return O('<p>Pour <b>' + N(w) + ' kg</b>, objectif « ' + (g === 'm' ? 'prise de masse' : g === 's' ? 'sèche' : 'maintien') + ' » :</p>' + li2(['Calories : ≈ <b>' + kc + ' kcal</b>/jour', 'Protéines : <b>' + pr + ' g</b> (' + N(Math.round(pr / w * 10) / 10) + ' g/kg)', 'Lipides : ≈ ' + fa + ' g', 'Glucides : ≈ ' + ch + ' g']) + '<p class="mute">Estimation' + (full ? ' (formule Mifflin-St Jeor, activité modérée)' : ' simplifiée : donne ta taille, ton âge et ton sexe pour l’affiner, ex. « calories homme 30 ans 180 cm 80 kg »') + '. Ajuste selon ton poids sur 2–3 semaines, évite les déficits extrêmes et demande l’avis d’un médecin ou d’un diététicien en cas de pathologie.</p>');
+  }
+  // 10. Générateur de séance
+  if (/\b(genere|cree|propose|compose|construis|prepare|invente)\b.{0,25}(seance|programme|entrainement)/.test(t)) {
+    const TP = {pec: ['pec', 'pec', 'pec', 'del', 'tri', 'tri'], dos: ['dos', 'dos', 'dos', 'bra', 'abd'], jam: ['qua', 'qua', 'ish', 'ish', 'mol', 'abd'], epa: ['del', 'del', 'tri', 'bra', 'abd'], bra: ['tri', 'bra', 'tri'], hau: ['pec', 'dos', 'del', 'dos', 'pec', 'tri', 'bra'], bas: ['qua', 'ish', 'qua', 'ish', 'mol', 'abd'], abd: ['abd', 'abd'], ful: ['qua', 'pec', 'dos', 'ish', 'del', 'abd']}, LB = {pec: 'pecs', dos: 'dos', jam: 'jambes', epa: 'épaules', bra: 'bras', hau: 'haut du corps', bas: 'bas du corps', abd: 'abdos', ful: 'full body'};
+    const key = /\bpecs?\b|poitrine|pousse/.test(t) ? 'pec' : /\bdos\b|tirage/.test(t) ? 'dos' : /jambe|cuisse|fessier/.test(t) ? 'jam' : /epaule/.test(t) ? 'epa' : /\bbras\b|biceps|triceps/.test(t) ? 'bra' : /\bhaut\b/.test(t) ? 'hau' : /\bbas\b/.test(t) ? 'bas' : /abdo|tronc|gainage/.test(t) ? 'abd' : 'ful';
+    const gl = /force|lourd/.test(t) ? 'force' : /endurance|cardio/.test(t) ? 'endurance' : 'muscle', md = /(\d{2,3})\s*(?:min|minutes?)/.exec(R), mins = md ? +md[1] : 45, n = Math.max(3, Math.min(8, Math.round(mins / 9))), used = {}, ex = [];
+    TP[key].slice(0, n).forEach((c, i) => { const pool = LIB.filter(l => l.c === c); used[c] = used[c] || 0; if (used[c] >= pool.length) return; const l = pool[used[c]++], sc = gl === 'endurance' ? ['3', '15–20', '45 s'] : i < 2 && gl === 'force' ? ['4', '4–6', '2 min 30'] : ['3', /Gainage/.test(l.n) ? '30–45 s' : '8–12', '1 min 30']; ex.push({name: l.n, sets: sc[0], reps: sc[1], load: '', rest: sc[2], notes: '', video: l.vid ? 'https://www.youtube.com/watch?v=' + l.vid : ''}); });
+    ctx.draft = {title: 'Séance ' + LB[key] + ' — ' + gl, exercises: ex};
+    return O('<p>Séance <b>' + LB[key] + '</b> (objectif ' + gl + ', ≈ ' + mins + ' min) :</p><ol>' + ex.map(e => '<li>' + esc(e.name) + ' — ' + e.sets + ' × ' + esc(e.reps) + ', repos ' + e.rest + '</li>').join('') + '</ol>' + (isAdmin ? '<a class="btn" href="#/admin/new" data-draft="1">Ouvrir dans l’éditeur</a>' : '<p class="mute">Pour l’ajouter à ton planning, envoie-la à ton coach via <a href="#/messages">Messages</a>.</p>'));
+  }
+  return null;
 }
 
 // ---- Un appareil = un compte (dissuasion : identifiant d'appareil stocké dans le navigateur) ----
