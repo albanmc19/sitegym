@@ -327,6 +327,15 @@ button.pill{cursor:pointer;background:color-mix(in srgb,var(--acc) 14%,transpare
 .lbc{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;z-index:2;width:44px;height:44px;border-radius:50%;padding:0;background:rgba(255,255,255,.18);color:#fff;font-size:20px}
 .lbh{margin:0;padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 10px);text-align:center;color:#bbb;font-size:13px}
 @media(max-width:600px){nav a{font-size:11px;letter-spacing:-.01em}.xtx{font-size:16px}}
+#fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:60;border-radius:99px;padding:12px 18px;box-shadow:var(--sh)}
+.ast{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.ast>div{background:var(--bg);width:100%;max-width:640px;height:86vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:0 14px calc(env(safe-area-inset-bottom,0px) + 12px)}
+.ah{display:flex;justify-content:space-between;align-items:center;padding:14px 0 6px;font:700 18px var(--hf)}.ah button{padding:6px 12px}
+.am{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.ab{max-width:90%;padding:10px 14px;border-radius:16px;margin:8px 0;background:var(--card);border:1px solid var(--line);font-size:15px}
+.ab.u{margin-left:auto;background:var(--acc);color:var(--acc-ink);border:0}
+.ab p{margin:0 0 6px}.ab ol,.ab ul{margin:4px 0 6px;padding-left:20px}.ab a{color:var(--acc);font-weight:600}
+.ac{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.ac button{padding:7px 12px;font-size:14px}
 </style>
 </head>
 <body>
@@ -348,7 +357,6 @@ const firebaseConfig = {
   appId: "1:548938318019:web:207852c70cff248798a276",
   measurementId: "G-RNKHDBQ4XF"
 };
-const ADMIN_EMAIL = "albanmc573@gmail.com"; // ton compte Google = admin
 // =======================
 
 firebase.initializeApp(firebaseConfig);
@@ -374,7 +382,7 @@ auth.onAuthStateChanged(async u => {
       let blocked = false;
       try { const d = await db.collection('users').doc(u.uid).get(); blocked = d.exists && d.data().blocked === true; myProf = d.exists ? d.data() : {}; } catch (e) {}
       if (blocked) { flash = 'Ton accès a été suspendu par l’administrateur.'; await auth.signOut(); return; }
-      user = u; isAdmin = (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      user = u; try { isAdmin = (await db.collection('admins').doc(u.uid).get()).exists; } catch (e) { isAdmin = false; }
     }
   }
   $('#out').hidden = !user; watchMsgs();
@@ -398,6 +406,7 @@ const ICO = {
 const icon = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[n]}</svg>`;
 let unread = 0, unsub = null, pageUnsub = null;
 function nav() {
+  try { fab(); } catch (e) {}
   document.title = (unread ? `(${unread}) ` : '') + 'Séances';
   const h = location.hash || '#/';
   const l = [['#/', 'home', "Aujourd'hui", ['#/']], ['#/calendrier', 'cal', 'Calendrier', ['#/calendrier', '#/seances', '#/seance/', '#/historique']], ['#/exercices', 'dumb', 'Exercices', ['#/exercices']], ['#/progres', 'chart', 'Progrès', ['#/progres']], ['#/musique', 'music', 'Musique', ['#/musique']], ['#/messages', 'chat', 'Messages', ['#/messages']]];
@@ -725,7 +734,7 @@ async function plusPage() {
 
 // ====== Catalogue d'exercices ======
 const CATS = [
-  {g: 'Haut du corps', items: [['pec', 'Pectoraux'], ['del', 'Deltoïdes'], ['tra', 'Trapèzes'], ['omo', 'Fixateurs d’omoplate'], ['cou', 'Cou'], ['bra', 'Fléchisseurs des bras'], ['tri', 'Triceps'], ['pfl', 'Fléchisseurs des poignets'], ['pex', 'Extenseurs des poignets']]},
+  {g: 'Haut du corps', items: [['pec', 'Pectoraux'], ['dos', 'Grand dorsal'], ['del', 'Deltoïdes'], ['tra', 'Trapèzes'], ['omo', 'Fixateurs d’omoplate'], ['cou', 'Cou'], ['bra', 'Fléchisseurs des bras'], ['tri', 'Triceps'], ['pfl', 'Fléchisseurs des poignets'], ['pex', 'Extenseurs des poignets']]},
   {g: 'Tronc', items: [['abd', 'Abdominaux'], ['lom', 'Dorso-lombaires']]},
   {g: 'Bas du corps', items: [['qua', 'Quadriceps'], ['ish', 'Ischio-jambiers'], ['add', 'Adducteurs'], ['mol', 'Mollets']]}
 ];
@@ -809,6 +818,7 @@ async function exercisesPage(cat, eid) {
   let list;
   try { list = (await db.collection('exercises').get()).docs.map(d => ({id: d.id, ...d.data()})); }
   catch (e) { app.innerHTML = `<h1>Exercices</h1><div class="card"><b>Impossible de lire le catalogue.</b><p class="mute">${esc(e.message)}</p><p class="mute">Il faut autoriser la collection « exercises » dans les règles Firestore.</p></div>`; return; }
+  { const have = new Set(list.map(e => slug(e.name))); LIB.filter(l => !have.has(slug(l.n))).forEach(l => list.push(libEx(l))); }
   list.sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
   let q = '';
   const plur = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
@@ -912,12 +922,13 @@ async function exercisesPage(cat, eid) {
       <section class="xsec" id="xpg" hidden><h2>Fiche explicative</h2><div class="xpb"></div><p class="mute" style="font-size:13px;margin:8px 0 0">Touche l’image pour l’agrandir.</p></section>
       ${hv ? `<button class="xv" id="xv" type="button" aria-label="Lire la vidéo">${th ? `<img src="${esc(th)}" alt="">` : ''}<span class="cxpl"></span></button>
         <p style="margin:10px 0 0;font-size:14px"><a href="${esc(e.video)}" target="_blank" rel="noopener noreferrer" style="color:var(--gc);font-weight:600">Ouvrir sur le site de la vidéo ↗</a></p>` : ''}
+      ${!hv ? `<p style="margin:10px 0 0;font-size:14px"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(e.name + ' technique tutoriel français')}" target="_blank" rel="noopener noreferrer" style="color:var(--gc);font-weight:600">Chercher une vidéo en français ↗</a></p>` : ''}
       ${e.desc ? `<section class="xsec"><h2>Description</h2><div class="xtx">${esc(e.desc)}</div></section>` : ''}
       ${e.comment ? `<section class="xsec"><h2>Commentaire</h2><div class="xcal xtx">${esc(e.comment)}</div></section>` : ''}
       ${!e.desc && !e.comment && !hv && !th ? `<div class="xemp" style="margin-top:20px">Cet exercice n’a pas encore de détails.${isAdmin ? ' Clique sur « Modifier » pour en ajouter.' : ''}</div>` : ''}
-      ${isAdmin ? '<div class="adm"><button class="alt" id="xed">Modifier</button><button class="del" id="xrm">Supprimer</button></div>' : ''}
+      ${isAdmin ? (e.virtual ? '<div class="adm"><button id="xim">Importer pour pouvoir modifier</button></div>' : '<div class="adm"><button class="alt" id="xed">Modifier</button><button class="del" id="xrm">Supprimer</button></div>') : ''}
       ${more.length ? `<section class="xsec" style="margin-top:34px"><h2>Dans la même catégorie</h2><div class="cxl">${more.map(x => card(x, false)).join('')}</div></section>` : ''}</div>`;
-    db.collection('exercisePages').doc(e.id).get().then(d => {
+    (e.virtual ? Promise.resolve({exists: false}) : db.collection('exercisePages').doc(e.id).get()).then(d => {
       const u = d.exists ? d.data().img : '', box = $('#xpg');
       if (!box || !/^data:image\/jpeg;base64,/.test(u || '')) return;
       const im = new Image(); im.alt = 'Fiche explicative : ' + e.name; im.src = u; im.onclick = () => lightbox(u);
@@ -931,7 +942,8 @@ async function exercisesPage(cat, eid) {
       f.src = src; f.title = e.name; f.allow = 'autoplay; fullscreen; picture-in-picture'; f.allowFullscreen = true; f.referrerPolicy = 'strict-origin-when-cross-origin';
       w.className = 'xv'; w.appendChild(f); v.replaceWith(w);
     };
-    if (isAdmin) { $('#xed').onclick = () => form(e); $('#xrm').onclick = () => askDel(e); }
+    if (isAdmin && !e.virtual) { $('#xed').onclick = () => form(e); $('#xrm').onclick = () => askDel(e); }
+    if (isAdmin && e.virtual) $('#xim').onclick = () => importLib([e.kb]).then(() => exercisesPage(e.cat)).catch(x => alert(x.message));
   }
 
   function body() {
@@ -957,9 +969,10 @@ async function exercisesPage(cat, eid) {
       <p class="mute" style="margin:0;max-width:520px">${cat ? 'Tous les exercices de ce groupe musculaire.' : 'Description, vidéo et conseils pour chaque exercice, rangés par groupe musculaire.'}</p>
       <div class="xst"><span>${plur(sub.length, 'exercice')}</span><span>${nv} avec vidéo</span>${cat ? '' : `<span>${plur(filled, 'groupe')} rempli${filled > 1 ? 's' : ''}</span>`}</div>
       <input id="xq" type="search" placeholder="Rechercher un exercice…" aria-label="Rechercher un exercice" autocomplete="off"></div>
-    <div id="exbody"></div>`;
+    ${isAdmin && list.some(e => e.virtual) ? `<div class="card"><b>Catalogue de base</b><p class="mute" style="margin:6px 0 10px">${list.filter(e => e.virtual).length} exercices intégrés (lecture seule). Importe-les pour pouvoir les modifier.</p><button id="xall">Tout importer</button></div>` : ''}<div id="exbody"></div>`;
   $('#xq').oninput = e => { q = e.target.value; body(); };
   if (isAdmin) $('#xadd').onclick = () => form(null);
+  if (isAdmin && $('#xall')) $('#xall').onclick = async function () { this.disabled = true; try { await importLib(LIB); exercisesPage(cat); } catch (x) { alert(x.message); this.disabled = false; } };
   body();
 }
 
@@ -1415,7 +1428,7 @@ async function usersPage() {
     lg.docs.forEach(d => { const l = d.data(), c = stats[l.uid] || (stats[l.uid] = {seances: 0, ex: 0}), n = Object.values(l.done || {}).filter(Boolean).length; if (n) { c.seances++; c.ex += n; } });
     list = us.docs.map(d => ({uid: d.id, ...d.data()})).sort((a, b) => (b.seen || 0) - (a.seen || 0));
   };
-  const isAdm = u => (u.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const ADM = new Set((await db.collection('admins').get().catch(() => ({docs: []}))).docs.map(d => d.id)); const isAdm = u => ADM.has(u.uid);
   const purge = async us => {
     const refs = [];
     for (const u of us) {
@@ -1484,7 +1497,7 @@ async function activityPage(focus) {
   const [ss, lg, us] = await Promise.all([all(), db.collection('logs').get(), db.collection('users').get()]);
   const S = {}; ss.forEach(s => { S[s.id] = s; });
   const recs = lg.docs.map(d => d.data()).map(l => { const s = S[l.sessionId]; if (!s) return null; const n = s.exercises.filter((_, i) => l.done && l.done[i]).length; return n ? {l, s, n} : null; }).filter(Boolean);
-  const people = us.docs.map(d => ({uid: d.id, ...d.data()})).filter(u => (u.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase());
+  const ADM2 = new Set((await db.collection('admins').get().catch(() => ({docs: []}))).docs.map(d => d.id)); const people = us.docs.map(d => ({uid: d.id, ...d.data()})).filter(u => !ADM2.has(u.uid));
   let days = 7;
   const draw = () => {
     const t = today(), cut = days ? addDays(t, 1 - days) : '0000-00-00', planned = ss.filter(s => s.date >= cut && s.date <= t).length;
@@ -1838,6 +1851,119 @@ async function weightPage() {
     b.disabled = false;
   };
   await load(); draw();
+}
+
+// ====== Catalogue de base (FR) + Assistant ======
+const nz = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+const slug = s => nz(s).replace(/ /g, '-');
+// [nom, alias, groupe, muscles, étapes, erreurs, respiration, variantes, id vidéo YouTube (FR) ou '']
+const LIB = [
+['Développé couché','bench|dc|bench press','pec','Pectoraux, deltoïdes antérieurs, triceps','Allonge-toi, omoplates serrées, pieds ancrés au sol|Descends la barre au bas des pectoraux, coudes à environ 45°|Pousse en gardant fessiers et tête sur le banc','Décoller les fesses du banc|Rebondir sur la poitrine|Coudes écartés à 90°','Inspire en descendant, expire en poussant','Haltères, prise serrée, machine guidée','feWp7jZopI8'],
+['Développé couché haltères','dc haltères|développé haltères','pec','Pectoraux, deltoïdes antérieurs, triceps','Haltères au-dessus de la poitrine, omoplates serrées|Descends jusqu’à sentir l’étirement des pecs, coudes à 45°|Pousse en rapprochant légèrement les haltères','Descendre trop bas (épaules en avant)|Choisir trop lourd et perdre le contrôle','Inspire en descendant, expire en poussant','Prise neutre, banc incliné, un bras à la fois','HBXn_SAlPw0'],
+['Développé incliné','incliné|dc incliné','pec','Haut des pectoraux, deltoïdes, triceps','Banc incliné à 30°, omoplates serrées|Descends vers le haut de la poitrine|Pousse sans verrouiller brutalement les coudes','Banc trop incliné (plus de 45°) : l’épaule fait tout|Hausser les épaules','Inspire en descendant, expire en poussant','Haltères, barre, machine','utaOtBFPQqM'],
+['Pompes','pompe|push up','pec','Pectoraux, triceps, deltoïdes, gainage','Mains sous les épaules, corps aligné de la tête aux talons|Descends la poitrine vers le sol, coudes à 45°|Pousse en gardant le ventre gainé','Bassin qui s’affaisse|Coudes très écartés|Amplitude réduite','Inspire en descendant, expire en poussant','Sur les genoux, mains surélevées, pieds surélevés','50Yr6Mm78u0'],
+['Dips','dip','tri','Triceps, bas des pectoraux, deltoïdes','Prise sur les barres, bras tendus, épaules basses|Descends jusqu’à ~90° au coude|Remonte en poussant sans balancer','Descendre trop bas (épaules douloureuses)|Balancer les jambes','Inspire en descendant, expire en remontant','Dips assistés, sur banc','' ],
+['Pec fly banc','pec fly|écarté|écartés|ecarte','pec','Pectoraux (isolation)','Bras presque tendus, coudes légèrement fléchis, omoplates serrées|Ouvre les bras jusqu’à l’étirement sans forcer|Referme en serrant les pecs','Trop lourd : le mouvement devient un développé|Coudes verrouillés','Inspire en ouvrant, expire en refermant','Poulies, machine papillon',''],
+['Tractions','traction|pull up','dos','Grand dorsal, biceps, rhomboïdes','Prise un peu plus large que les épaules, épaules basses|Tire les coudes vers les hanches jusqu’au menton au-dessus de la barre|Redescends en contrôle, bras tendus','Se balancer (kipping)|Amplitude incomplète|Épaules vers les oreilles','Expire en montant, inspire en descendant','Élastique, négatives, prise neutre','z7CCVwDfn0I'],
+['Rowing barre','rowing|tirage horizontal','dos','Dorsaux, rhomboïdes, trapèzes, biceps','Pieds largeur de hanches, buste penché, dos plat|Tire la barre vers le nombril en ramenant les coudes en arrière|Redescends en contrôle sans arrondir le dos','Dos rond|Relever le buste à chaque rep|Charge trop lourde','Expire en tirant, inspire en descendant','Haltère un bras, machine, barre en T',''],
+['Tirage vertical','tirage poitrine|lat pulldown','dos','Grand dorsal, biceps, rhomboïdes','Cuisses calées, prise un peu plus large que les épaules|Tire la barre vers le haut de la poitrine, coudes vers le bas|Remonte lentement en gardant la tension','Se pencher très en arrière pour tricher|Tirer derrière la nuque','Expire en tirant, inspire en remontant','Prise neutre, unilatéral',''],
+['Développé militaire','militaire|overhead press|développé épaules','del','Deltoïdes, triceps, haut des trapèzes','Barre à hauteur des clavicules, abdos et fessiers serrés|Pousse au-dessus de la tête en passant le visage devant la barre|Redescends en contrôle','Cambrer le bas du dos|Pousser en avant au lieu de verticalement','Inspire en bas, expire en poussant','Haltères, assis, machine',''],
+['Élévations latérales','élévation latérale|elevations laterales','del','Deltoïdes moyens','Haltères le long du corps, coudes légèrement fléchis|Monte les bras sur le côté jusqu’à hauteur d’épaules|Redescends lentement','Balancer le corps|Monter plus haut que les épaules|Charge trop lourde','Expire en montant, inspire en descendant','À la poulie, assis, unilatéral','q_DYeb_daeY'],
+['Curl biceps','curl|biceps','bra','Biceps, brachial, avant-bras','Coudes collés au corps, dos droit|Monte la charge en fléchissant les coudes|Redescends lentement sans balancer','Balancer le buste|Coudes qui partent en avant','Expire en montant, inspire en descendant','Haltères, barre EZ, marteau, poulie',''],
+['Extension triceps','extension triceps|triceps poulie|barre au front','tri','Triceps','Coudes fixes près du corps|Étends complètement les bras|Reviens lentement jusqu’à ~90°','Coudes qui bougent|Épaules qui montent','Expire en étendant, inspire au retour','Poulie corde, barre au front, derrière la nuque',''],
+['Squat','squat|squats','qua','Quadriceps, fessiers, ischio-jambiers, gainage','Pieds largeur d’épaules, pointes légèrement ouvertes, dos neutre|Descends en poussant les fesses en arrière, genoux dans l’axe des pieds|Remonte en poussant dans les talons','Genoux qui rentrent|Talons qui décollent|Dos qui s’arrondit','Inspire en descendant, expire en remontant','Goblet squat, barre, presse, squat gobelet','OMNnle4yTT8'],
+['Presse à cuisses','presse|leg press','qua','Quadriceps, fessiers','Dos et bassin plaqués, pieds à largeur d’épaules|Descends jusqu’à ~90° aux genoux sans décoller le bassin|Pousse sans verrouiller les genoux','Bassin qui décolle|Verrouiller les genoux|Charge excessive, amplitude réduite','Inspire en descendant, expire en poussant','Pieds hauts/bas, unilatéral',''],
+['Fentes','fente|lunge','qua','Quadriceps, fessiers','Grand pas en avant, buste droit|Descends le genou arrière vers le sol|Remonte en poussant dans le pied avant','Genou qui s’effondre vers l’intérieur|Pas trop court','Inspire en descendant, expire en remontant','Marchées, bulgares, en arrière',''],
+['Extension de genou','genou extension|leg extension','qua','Quadriceps (isolation)','Dos calé, rouleau sur le bas des tibias|Étends les jambes en contractant les cuisses|Redescends lentement','Balancer|Charge trop lourde','Expire en étendant, inspire en revenant','Unilatéral',''],
+['Soulevé de terre roumain','sdt roumain|romanian deadlift|rdl|soulevé de terre','ish','Ischio-jambiers, fessiers, lombaires','Barre près des cuisses, genoux légèrement fléchis|Recule les hanches, dos plat, descends sous les genoux|Remonte en poussant les hanches vers l’avant','Dos rond|Barre loin du corps|Plier trop les genoux','Inspire en descendant, expire en remontant','Haltères, unilatéral',''],
+['Leg curl','curl jambes|ischio|ischios','ish','Ischio-jambiers','Allongé ou assis, rouleau au-dessus des talons|Fléchis les jambes en contractant|Reviens lentement','Décoller le bassin|Aller trop vite','Expire en fléchissant, inspire en revenant','Assis, allongé, unilatéral',''],
+['Mollets debout','mollet|mollets|mollet extension|mollets debout','mol','Mollets (gastrocnémiens, soléaire)','Pointes sur une marche, talons dans le vide|Monte sur la pointe des pieds au maximum|Redescends jusqu’à l’étirement','Amplitude réduite|Rebondir','Expire en montant, inspire en descendant','Assis, à la presse, unilatéral',''],
+['Gainage','planche|plank','abd','Abdominaux profonds, épaules, fessiers','Avant-bras au sol, coudes sous les épaules|Corps aligné, ventre et fessiers serrés|Tiens sans bloquer la respiration','Bassin trop haut ou trop bas|Retenir sa respiration','Respire calmement, expire longuement','Sur les genoux, gainage latéral',''],
+['Crunch','crunchs|abdos','abd','Grand droit de l’abdomen','Dos au sol, genoux fléchis, mains sur les tempes|Enroule les épaules vers le bassin|Redescends en contrôle','Tirer sur la nuque|Se relever complètement','Expire en montant, inspire en descendant','Crunch inversé, à la poulie','']
+].map(([n, a, c, m, s, e, r, v, vid]) => ({n, a: a ? a.split('|') : [], c, m, s: s.split('|'), e: e.split('|'), r, v, vid}));
+const libDesc = l => ('Muscles : ' + l.m + '\n\nExécution :\n' + l.s.map((x, i) => (i + 1) + '. ' + x).join('\n') + '\n\nErreurs à éviter :\n' + l.e.map(x => '• ' + x).join('\n') + '\n\nRespiration : ' + l.r + '\n\nVariantes : ' + l.v).slice(0, 1000);
+const libEx = l => ({id: 'lib-' + slug(l.n), name: l.n, cat: l.c, desc: libDesc(l), comment: '', video: l.vid ? 'https://www.youtube.com/watch?v=' + l.vid : '', virtual: true, kb: l});
+async function importLib(arr) {
+  const have = (await db.collection('exercises').get()).docs.map(d => slug(d.data().name)), b = db.batch(); let n = 0;
+  arr.forEach(l => { if (have.includes(slug(l.n))) return; b.set(db.collection('exercises').doc(), {name: l.n, cat: l.c, desc: libDesc(l), video: l.vid ? 'https://www.youtube.com/watch?v=' + l.vid : '', comment: '', img: '', createdAt: Date.now()}); n++; });
+  if (n) await b.commit(); return n;
+}
+
+// ---- Assistant (100 % local : aucune donnée envoyée à un service externe) ----
+let ctx = {items: [], ex: null, sess: null, q: null};
+const GOAL = 'Selon ton objectif : <b>force</b> 3–5 séries de 3–6 reps (repos 2–4 min) ; <b>muscle</b> 3–4 × 8–12 (repos 1 min 30–2 min) ; <b>endurance</b> 2–3 × 15–20 (repos 45–60 s). Choisis une charge qui te laisse 1–2 reps « en réserve », et augmente un peu quand tu atteins le haut de la fourchette sur toutes les séries.';
+const GEN = {
+  warm: 'Échauffement (5–10 min) : cardio léger, mobilité des articulations utilisées, puis 1–2 séries légères du premier exercice en montant la charge progressivement.',
+  str: 'Retour au calme : marche lente 3–5 min, puis étirements doux de 20–30 s par muscle, sans chercher la douleur.',
+  sore: 'Les courbatures sont normales après un nouvel effort (24–72 h). Bouge doucement, hydrate-toi, dors bien. Si la douleur est vive, localisée ou dure plus de 5 jours, demande un avis médical.',
+  prog: 'Pour progresser : garde une technique propre, ajoute 1 rep par série jusqu’au haut de la fourchette, puis augmente la charge de 2–5 %. Dors 7–9 h, mange assez de protéines et prévois une semaine plus légère toutes les 6–8 semaines.',
+  pain: '⚠️ Douleur vive, articulation qui « pince », engourdissement ou vertige : <b>arrête l’exercice</b>. Une brûlure musculaire est normale, pas une douleur articulaire ou dans le dos. Je ne peux pas poser de diagnostic : si ça persiste, consulte un médecin ou un kiné.'
+};
+const INT = [['pain', /douleur|mal au|mal a |me fait mal|bless|claqu|crampe|engourdi|vertige|tendin|\bgene\b/], ['quiz', /quiz|teste|interroge/], ['err', /erreur|faute|piege|eviter|danger|mal fait/], ['musc', /muscle|travaille|cible|sollicit|sert a/], ['resp', /respir|souffle|expire|inspire/], ['var', /variante|alternative|remplac|maison|sans materiel|plus facile|plus dur|debutant/], ['load', /charge|poids|kilo|kg|lourd|leger/], ['reps', /serie|repetition|reps|volume/], ['rest', /repos|pause/], ['vid', /video|demo|montre/], ['warm', /echauff|warm/], ['str', /etire|retour au calme|stretch/], ['sore', /courbatur/], ['prog', /progress|stagne|plateau|augmenter/], ['sess', /seance|programme|aujourd/], ['tech', /comment|technique|execut|realis|position|placement|mouvement|etape|faire|explique/], ['hi', /^(salut|bonjour|hello|coucou|hey|bonsoir)/], ['ty', /merci/]];
+const kbOf = it => it.kb || LIB.find(l => slug(l.n) === slug(it.name));
+function astFind(txt, items) {
+  const t = nz(txt), tk = new Set(t.split(' ').map(w => w.replace(/[sx]$/, ''))), stop = ['de', 'du', 'des', 'la', 'le', 'les', 'au', 'aux', 'en', 'avec', 'a', 'un', 'une'];
+  let best = null, bs = 0;
+  items.forEach(it => { const kb = kbOf(it); [it.name, ...(kb ? kb.a : [])].forEach(nm => {
+    const n = nz(nm); if (!n) return; let sc = 0;
+    if (t.includes(n)) sc = 100 + n.length;
+    else { const w = n.split(' ').filter(x => x.length > 2 && !stop.includes(x)); if (w.length) { const h = w.filter(x => tk.has(x.replace(/[sx]$/, ''))).length; sc = h / w.length * 50 + (h ? 5 : 0); } }
+    if (sc > bs) { bs = sc; best = it; } }); });
+  return bs >= 40 ? best : null;
+}
+const chip = (l, t) => [l, t || l];
+const exChips = () => ctx.ex ? ['Technique', 'Muscles', 'Erreurs à éviter', 'Respiration', 'Variantes', 'Charge et séries', 'Vidéo', 'Teste-moi', 'J’ai une gêne'].map(x => chip(x)) : (ctx.sess ? ctx.sess.ex.slice(0, 8).map(x => chip(x.name)) : ['Squat', 'Développé couché', 'Tractions', 'Gainage'].map(x => chip(x)));
+const li = a => a.map(x => '<li>' + esc(x) + '</li>').join('');
+function astReply(raw) {
+  const t = nz(raw);
+  if (ctx.q) { const q = ctx.q; if (q.opts.some(o => nz(o) === t)) { ctx.q = null; return {h: nz(q.ans) === t ? '✅ Bravo, c’est bien ça !' : '❌ Presque : c’est <b>' + esc(q.ans) + '</b>.', chips: exChips()}; } ctx.q = null; }
+  const found = astFind(raw, ctx.items); if (found) ctx.ex = found;
+  const it = found || ctx.ex, k = (INT.find(([, r]) => r.test(t)) || [])[0];
+  if (k === 'hi') return {h: 'Salut ! Dis-moi sur quel exercice tu veux de l’aide, ou pose-moi une question.', chips: exChips()};
+  if (k === 'ty') return {h: 'Avec plaisir, bonne séance ! 💪', chips: exChips()};
+  if (k === 'pain') return {h: GEN.pain, chips: exChips()};
+  if (GEN[k]) return {h: GEN[k], chips: exChips()};
+  if (k === 'sess') return ctx.sess ? {h: '<p>Ta séance « ' + esc(ctx.sess.title) + ' » :</p><ul>' + ctx.sess.ex.map(x => '<li>' + esc(x.name) + (detail(x) ? ' — ' + esc(detail(x)) : '') + '</li>').join('') + '</ul>', chips: exChips()} : {h: 'Ouvre une séance (page « séance ») puis rouvre-moi : je verrai tes exercices. Sinon, choisis un exercice :', chips: exChips()};
+  if (k === 'quiz') { const pool = ctx.items; if (!it && !pool.length) return {h: 'Pas d’exercice disponible.', chips: []}; const e = it || pool[Math.floor(Math.random() * pool.length)]; ctx.ex = e; const ans = CATN[e.cat] || '', opts = [ans, ...Object.values(CATN).filter(x => x !== ans).sort(() => Math.random() - .5).slice(0, 3)].sort(() => Math.random() - .5); ctx.q = {ans, opts}; return {h: 'Question : quel est le groupe musculaire principal de « <b>' + esc(e.name) + '</b> » ?', chips: opts.map(x => chip(x))}; }
+  if (!it) return k ? {h: 'Sur quel exercice ? Choisis-en un ou écris son nom.', chips: exChips()} : {h: 'Je n’ai pas bien compris. Écris le nom d’un exercice (ex. « squat ») puis ce que tu veux savoir : technique, muscles, erreurs, respiration, charge, vidéo… ou demande « échauffement », « progresser », « courbatures ».', chips: exChips()};
+  const kb = kbOf(it), p = ctx.sess && ctx.sess.ex.find(x => slug(x.name) === slug(it.name)), nm = '<b>' + esc(it.name) + '</b>', fiche = ' <a href="#/exercices/' + esc(it.cat) + '/' + esc(it.id) + '">Voir la fiche</a>';
+  if (k === 'tech' || !k) return {h: kb ? '<p>' + nm + ' — exécution :</p><ol>' + li(kb.s) + '</ol><p>Muscles : ' + esc(kb.m) + '.' + fiche + '</p>' : '<p>' + nm + ' :</p><p>' + esc((it.desc || 'Pas encore de description.').slice(0, 500)).replace(/\n/g, '<br>') + fiche + '</p>', chips: exChips()};
+  if (k === 'musc') return {h: '<p>' + nm + ' : ' + esc(kb ? kb.m : CATN[it.cat] || '') + '.</p>', chips: exChips()};
+  if (k === 'err') return {h: kb ? '<p>Erreurs fréquentes sur ' + nm + ' :</p><ul>' + li(kb.e) + '</ul>' : '<p>Pas de liste d’erreurs pour ' + nm + '.' + fiche + '</p>', chips: exChips()};
+  if (k === 'resp') return {h: '<p>' + nm + ' : ' + esc(kb ? kb.r : 'expire pendant l’effort, inspire au retour') + '. Ne bloque pas ta respiration.</p>', chips: exChips()};
+  if (k === 'var') return {h: '<p>Variantes de ' + nm + ' : ' + esc(kb ? kb.v : 'voir la fiche') + '.</p>', chips: exChips()};
+  if (k === 'vid') { const v = okUrl(it.video) ? it.video : ''; return {h: '<p>' + nm + ' : ' + (v ? '<a href="' + esc(v) + '" target="_blank" rel="noopener noreferrer">vidéo d’explication ↗</a>' : '<a href="https://www.youtube.com/results?search_query=' + encodeURIComponent(it.name + ' technique tutoriel français') + '" target="_blank" rel="noopener noreferrer">chercher une vidéo en français ↗</a>') + '.' + fiche + '</p>', chips: exChips()}; }
+  if (k === 'prog') return {h: GEN.prog, chips: exChips()};
+  return {h: '<p>' + (p ? 'Ta séance prévoit pour ' + nm + ' : ' + esc(detail(p)) + '.</p><p>' : '') + GOAL + '</p>', chips: exChips()};
+}
+async function astLoad() {
+  let l = []; try { l = (await db.collection('exercises').get()).docs.map(d => ({id: d.id, ...d.data()})); } catch (e) {}
+  const have = new Set(l.map(e => slug(e.name))); LIB.forEach(x => { if (!have.has(slug(x.n))) l.push(libEx(x)); }); return l;
+}
+function fab() {
+  let b = $('#fab');
+  if (!user) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('button'); b.id = 'fab'; b.type = 'button'; b.textContent = '💬 Assistant'; b.onclick = openAst; document.body.appendChild(b); }
+}
+async function openAst() {
+  if ($('.ast')) return;
+  const o = document.createElement('div'); o.className = 'ast';
+  o.innerHTML = '<div role="dialog" aria-label="Assistant"><div class="ah"><span>Assistant séance</span><button class="alt" id="ax" type="button" aria-label="Fermer">✕</button></div><div class="am" id="am" aria-live="polite"></div><div class="ac" id="ac"></div><div class="row nowrap"><input id="ai" placeholder="Pose ta question…" maxlength="200" autocomplete="off"><button id="as" type="button" style="flex:none">Envoyer</button></div></div>';
+  document.body.appendChild(o);
+  const g = s => o.querySelector(s), close = () => { o.remove(); document.removeEventListener('keydown', kd); }, kd = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', kd); g('#ax').onclick = close; o.onclick = e => { if (e.target === o) close(); };
+  g('#am').onclick = e => { if (e.target.closest('a[href^="#"]')) close(); };
+  const say = (h, u) => { const d = document.createElement('div'); d.className = 'ab' + (u ? ' u' : ''); d.innerHTML = h; g('#am').appendChild(d); g('#am').scrollTop = 1e9; };
+  const chips = a => { g('#ac').innerHTML = ''; a.forEach(([l, t]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'alt'; b.textContent = l; b.onclick = () => send(t); g('#ac').appendChild(b); }); };
+  const send = txt => { txt = String(txt || '').trim().slice(0, 200); if (!txt) return; say(esc(txt), true); g('#ai').value = ''; const r = astReply(txt); say(r.h); chips(r.chips || []); };
+  g('#as').onclick = () => send(g('#ai').value); g('#ai').onkeydown = e => { if (e.key === 'Enter') send(g('#ai').value); };
+  say('<p>Un instant…</p>');
+  ctx = {items: await astLoad(), ex: null, sess: null, q: null};
+  const m = location.hash.match(/^#\/seance\/([^/?]+)/);
+  if (m) { try { const d = await db.collection('sessions').doc(m[1]).get(); if (d.exists) ctx.sess = {title: d.data().title, ex: d.data().exercises || []}; } catch (e) {} }
+  g('#am').innerHTML = '';
+  say(ctx.sess ? '<p>Salut ' + esc(nm(user).split(' ')[0]) + ' ! Ta séance « ' + esc(ctx.sess.title) + ' » compte ' + ctx.sess.ex.length + ' exercice' + (ctx.sess.ex.length > 1 ? 's' : '') + '. Sur lequel veux-tu de l’aide ?</p>' : '<p>Salut ' + esc(nm(user).split(' ')[0]) + ' ! Je peux t’expliquer un mouvement, te poser des questions pour vérifier ta technique et te conseiller sur la charge. Quel exercice ?</p>');
+  chips(exChips().concat([chip('Échauffement'), chip('Teste-moi')])); g('#ai').focus();
 }
 </script>
 </body>
