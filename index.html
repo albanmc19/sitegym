@@ -383,6 +383,7 @@ auth.onAuthStateChanged(async u => {
       try { const d = await db.collection('users').doc(u.uid).get(); blocked = d.exists && d.data().blocked === true; myProf = d.exists ? d.data() : {}; } catch (e) {}
       if (blocked) { flash = 'Ton accès a été suspendu par l’administrateur.'; await auth.signOut(); return; }
       user = u; try { isAdmin = (await db.collection('admins').doc(u.uid).get()).exists; } catch (e) { isAdmin = false; }
+      if (!isAdmin && await devCheck(u.uid) === 'other') { user = null; flash = 'Cet appareil est déjà lié à un autre compte. Connecte-toi avec ton compte d’origine (celui de ta première connexion).'; await auth.signOut(); return; }
     }
   }
   $('#out').hidden = !user; watchMsgs();
@@ -1434,6 +1435,7 @@ async function usersPage() {
     for (const u of us) {
       refs.push(db.collection('users').doc(u.uid));
       (await db.collection('logs').where('uid', '==', u.uid).get()).docs.forEach(d => refs.push(d.ref));
+      try { (await db.collection('devices').where('uid', '==', u.uid).get()).docs.forEach(d => refs.push(d.ref)); } catch (e) {}
       (await db.collection('messages').where('uid', '==', u.uid).get()).docs.forEach(d => refs.push(d.ref));
     }
     for (let i = 0; i < refs.length; i += 450) { const b = db.batch(); refs.slice(i, i + 450).forEach(r => b.delete(r)); await b.commit(); }
@@ -2002,6 +2004,14 @@ async function astData(raw, t) {
   if (wantHist) { const L = EP.slice(-8), a = L[0], z = L[L.length - 1], tr = a.num != null && z.num != null && L.length > 1 ? '<p>Évolution : ' + a.num + ' → ' + z.num + ' (' + (z.num >= a.num ? '+' : '') + Math.round((z.num - a.num) * 10) / 10 + ').</p>' : ''; return {h: '<p>Historique ' + nm + (lab || '') + ' :</p><ul>' + L.map(e => '<li>' + esc(sd(e.date)) + ' : ' + esc(wl(e)) + '</li>').join('') + '</ul>' + tr, chips: exChips()}; }
   if (wantMax) { const b = byNum(EP); if (!b) return {h: '<p>Je n’ai pas de charge chiffrée pour ' + nm + (lab || '') + '.</p>', chips: exChips()}; const all = byNum(E); return {h: '<p>Ton record sur ' + nm + (lab || '') + ' : ' + row(b) + '</p>' + (P.lab && all && all.num > b.num ? '<p>Record de tous les temps : ' + row(all) + '</p>' : ''), chips: exChips()}; }
   return {h: '<p>Dernière fois sur ' + nm + (lab || '') + ' : ' + row(EP[EP.length - 1]) + '</p>', chips: exChips()};
+}
+
+// ---- Un appareil = un compte (dissuasion : identifiant d'appareil stocké dans le navigateur) ----
+const devId = () => { try { let d = localStorage.getItem('did'); if (!/^[a-f0-9]{32}$/.test(d || '')) { d = [...crypto.getRandomValues(new Uint8Array(16))].map(x => x.toString(16).padStart(2, '0')).join(''); localStorage.setItem('did', d); } return d; } catch (e) { return ''; } };
+async function devCheck(uid) {
+  const id = devId(); if (!id) return 'ok';
+  try { const r = db.collection('devices').doc(id), d = await r.get(); if (d.exists) return d.data().uid === uid ? 'ok' : 'other'; await r.set({uid, at: Date.now()}); return 'ok'; }
+  catch (e) { return 'ok'; }
 }
 </script>
 </body>
