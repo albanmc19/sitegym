@@ -1914,11 +1914,12 @@ function astFind(txt, items) {
 const chip = (l, t) => [l, t || l];
 const exChips = () => ctx.ex ? ['Technique', 'Muscles', 'Erreurs à éviter', 'Respiration', 'Variantes', 'Charge et séries', 'Vidéo', 'Teste-moi', 'J’ai une gêne'].map(x => chip(x)) : (ctx.sess ? ctx.sess.ex.slice(0, 8).map(x => chip(x.name)) : ['Squat', 'Développé couché', 'Tractions', 'Gainage'].map(x => chip(x)));
 const li = a => a.map(x => '<li>' + esc(x) + '</li>').join('');
-function astReply(raw) {
+async function astReply(raw) {
   const t = nz(raw);
   if (ctx.q) { const q = ctx.q; if (q.opts.some(o => nz(o) === t)) { ctx.q = null; return {h: nz(q.ans) === t ? '✅ Bravo, c’est bien ça !' : '❌ Presque : c’est <b>' + esc(q.ans) + '</b>.', chips: exChips()}; } ctx.q = null; }
   const found = astFind(raw, ctx.items); if (found) ctx.ex = found;
   const it = found || ctx.ex, k = (INT.find(([, r]) => r.test(t)) || [])[0];
+  if (k !== 'pain' && astIsData(t)) return astData(raw, t);
   if (k === 'hi') return {h: 'Salut ! Dis-moi sur quel exercice tu veux de l’aide, ou pose-moi une question.', chips: exChips()};
   if (k === 'ty') return {h: 'Avec plaisir, bonne séance ! 💪', chips: exChips()};
   if (k === 'pain') return {h: GEN.pain, chips: exChips()};
@@ -1955,7 +1956,7 @@ async function openAst() {
   g('#am').onclick = e => { if (e.target.closest('a[href^="#"]')) close(); };
   const say = (h, u) => { const d = document.createElement('div'); d.className = 'ab' + (u ? ' u' : ''); d.innerHTML = h; g('#am').appendChild(d); g('#am').scrollTop = 1e9; };
   const chips = a => { g('#ac').innerHTML = ''; a.forEach(([l, t]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'alt'; b.textContent = l; b.onclick = () => send(t); g('#ac').appendChild(b); }); };
-  const send = txt => { txt = String(txt || '').trim().slice(0, 200); if (!txt) return; say(esc(txt), true); g('#ai').value = ''; const r = astReply(txt); say(r.h); chips(r.chips || []); };
+  const send = async txt => { txt = String(txt || '').trim().slice(0, 200); if (!txt) return; say(esc(txt), true); g('#ai').value = ''; let r; try { r = await astReply(txt); } catch (e) { r = {h: 'Je n’ai pas pu lire tes données pour le moment.', chips: []}; } say(r.h); chips(r.chips || []); };
   g('#as').onclick = () => send(g('#ai').value); g('#ai').onkeydown = e => { if (e.key === 'Enter') send(g('#ai').value); };
   say('<p>Un instant…</p>');
   ctx = {items: await astLoad(), ex: null, sess: null, q: null};
@@ -1963,7 +1964,44 @@ async function openAst() {
   if (m) { try { const d = await db.collection('sessions').doc(m[1]).get(); if (d.exists) ctx.sess = {title: d.data().title, ex: d.data().exercises || []}; } catch (e) {} }
   g('#am').innerHTML = '';
   say(ctx.sess ? '<p>Salut ' + esc(nm(user).split(' ')[0]) + ' ! Ta séance « ' + esc(ctx.sess.title) + ' » compte ' + ctx.sess.ex.length + ' exercice' + (ctx.sess.ex.length > 1 ? 's' : '') + '. Sur lequel veux-tu de l’aide ?</p>' : '<p>Salut ' + esc(nm(user).split(' ')[0]) + ' ! Je peux t’expliquer un mouvement, te poser des questions pour vérifier ta technique et te conseiller sur la charge. Quel exercice ?</p>');
-  chips(exChips().concat([chip('Échauffement'), chip('Teste-moi')])); g('#ai').focus();
+  let ex2 = [];
+  try { const H = await getHistory(user.uid), c = {}; H.entries.forEach(e => { c[e.name] = (c[e.name] || 0) + 1; }); const top = Object.keys(c).sort((a, b) => c[b] - c[a])[0]; if (top) ex2 = [chip('Mon record ' + top), chip('Ma dernière séance'), chip('Combien de séances cette semaine ?')]; } catch (e) {}
+  chips(ex2.concat(exChips(), [chip('Échauffement'), chip('Teste-moi')])); g('#ai').focus();
+}
+
+// ---- Assistant : questions sur MES données (historique des charges) ----
+const astIsData = t => (/\b(mon|ma|mes|j ai|ai je|combien de seances|combien de fois)\b/.test(t) && /max|record|meilleur|plus lourd|plus gros|dernier|derniere|combien|historique|evolution|progression|semaine|mois|hier|\bfois\b/.test(t)) || /derniere fois|\b(mon|ma) (record|pr)\b/.test(t);
+function astPeriod(t) {
+  const d = new Date(today() + 'T12:00'), mon = x => { const y = new Date(x); y.setDate(y.getDate() - (y.getDay() + 6) % 7); return y; }; let a = '0000-00-00', b = '9999-99-99', lab = '', m;
+  if (/semaine (derniere|passee)/.test(t)) { const s = mon(d); s.setDate(s.getDate() - 7); const e = new Date(s); e.setDate(e.getDate() + 6); a = iso(s); b = iso(e); lab = 'la semaine dernière'; }
+  else if (/cette semaine/.test(t)) { a = iso(mon(d)); lab = 'cette semaine'; }
+  else if (/mois dernier/.test(t)) { a = iso(new Date(d.getFullYear(), d.getMonth() - 1, 1, 12)); b = iso(new Date(d.getFullYear(), d.getMonth(), 0, 12)); lab = 'le mois dernier'; }
+  else if (/ce mois/.test(t)) { a = iso(new Date(d.getFullYear(), d.getMonth(), 1, 12)); lab = 'ce mois-ci'; }
+  else if (m = t.match(/(\d+) (derniers? |dernieres? )?(jours?|semaines?|mois)/)) { const s = new Date(d); s.setDate(s.getDate() - m[1] * (/jour/.test(m[3]) ? 1 : /semaine/.test(m[3]) ? 7 : 30)); a = iso(s); lab = 'sur les ' + m[1] + ' derniers ' + m[3]; }
+  else if (/\bhier\b/.test(t)) { const s = new Date(d); s.setDate(s.getDate() - 1); a = b = iso(s); lab = 'hier'; }
+  else if (/aujourd/.test(t)) { a = b = today(); lab = 'aujourd’hui'; }
+  return {a, b, lab};
+}
+async function astData(raw, t) {
+  const H = await getHistory(user.uid), P = astPeriod(t), inP = x => x.date >= P.a && x.date <= P.b, lab = P.lab ? ' ' + P.lab : '';
+  const wl = e => /^[\d.,]+$/.test(String(e.w).trim()) ? e.w + ' kg' : e.w, sd = x => new Date(x + 'T12:00').toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'});
+  const row = e => '<b>' + esc(wl(e)) + '</b> le ' + esc(fmt(e.date)) + ' (<a href="#/seance/' + esc(e.id) + '">« ' + esc(e.title) + ' »</a>)' + (e.sets ? '<br><span class="mute">séries : ' + e.sets.filter(Boolean).map(esc).join(' · ') + '</span>' : '');
+  const names = [...new Map(H.entries.map(e => [e.key, {name: e.name, id: e.key}])).values()];
+  const wantMax = /max|record|meilleur|plus lourd|plus gros|\bpr\b/.test(t), wantHist = /historique|evolution|progression/.test(t), wantCnt = /combien de (seances|fois)/.test(t);
+  let hit = astFind(raw, names); const cat = astFind(raw, ctx.items);
+  if (!hit && cat) { const kb = kbOf(cat); hit = astFind([cat.name, ...(kb ? kb.a : [])].join(' ; '), names); }
+  if (!hit) {
+    const D = H.done.filter(inP);
+    if (wantCnt) return {h: '<p>Tu as terminé <b>' + D.length + '</b> séance' + (D.length > 1 ? 's' : '') + (lab || ' au total') + '.</p>', chips: exChips()};
+    if (/seance/.test(t)) { const s = wantMax ? D.slice().sort((x, y) => y.n - x.n || (x.date < y.date ? 1 : -1))[0] : D[D.length - 1]; return {h: s ? '<p>' + (wantMax ? 'Ta plus grosse séance' + lab : 'Ta dernière séance') + ' : <a href="#/seance/' + esc(s.id) + '">« ' + esc(s.title) + ' »</a>, le ' + esc(fmt(s.date)) + ' — ' + s.n + '/' + s.total + ' exercices faits.</p>' : '<p>Aucune séance terminée' + lab + '.</p>', chips: exChips()}; }
+    return {h: names.length ? '<p>Sur quel exercice ? Voici ceux de ton historique :</p>' : '<p>Je ne trouve aucune charge enregistrée dans ton historique pour l’instant.</p>', chips: names.slice(0, 6).map(x => chip('Mon record ' + x.name))};
+  }
+  const E = H.entries.filter(e => { const a = nz(e.name), b = nz(hit.name); return a === b || a.includes(b) || b.includes(a); }), EP = E.filter(inP), nm = '<b>' + esc(hit.name) + '</b>';
+  const byNum = a => a.filter(e => e.num != null).sort((x, y) => y.num - x.num || (x.date < y.date ? 1 : -1))[0];
+  if (!EP.length) return {h: '<p>Aucune charge enregistrée pour ' + nm + (lab || '') + '.' + (E.length ? ' Ta dernière fois : ' + row(E[E.length - 1]) : '') + '</p>', chips: exChips()};
+  if (wantHist) { const L = EP.slice(-8), a = L[0], z = L[L.length - 1], tr = a.num != null && z.num != null && L.length > 1 ? '<p>Évolution : ' + a.num + ' → ' + z.num + ' (' + (z.num >= a.num ? '+' : '') + Math.round((z.num - a.num) * 10) / 10 + ').</p>' : ''; return {h: '<p>Historique ' + nm + (lab || '') + ' :</p><ul>' + L.map(e => '<li>' + esc(sd(e.date)) + ' : ' + esc(wl(e)) + '</li>').join('') + '</ul>' + tr, chips: exChips()}; }
+  if (wantMax) { const b = byNum(EP); if (!b) return {h: '<p>Je n’ai pas de charge chiffrée pour ' + nm + (lab || '') + '.</p>', chips: exChips()}; const all = byNum(E); return {h: '<p>Ton record sur ' + nm + (lab || '') + ' : ' + row(b) + '</p>' + (P.lab && all && all.num > b.num ? '<p>Record de tous les temps : ' + row(all) + '</p>' : ''), chips: exChips()}; }
+  return {h: '<p>Dernière fois sur ' + nm + (lab || '') + ' : ' + row(EP[EP.length - 1]) + '</p>', chips: exChips()};
 }
 </script>
 </body>
